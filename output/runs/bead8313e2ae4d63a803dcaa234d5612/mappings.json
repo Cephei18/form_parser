@@ -1,0 +1,230 @@
+[
+  {
+    "label": "Field",
+    "label_pos": [
+      185.0,
+      214.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        190
+      ],
+      "end": [
+        706,
+        190
+      ]
+    },
+    "distance": 211.4243363475454,
+    "column_split": 301.25
+  },
+  {
+    "label": "Full Name",
+    "label_pos": [
+      127.25,
+      265.5
+    ],
+    "field_line": {
+      "start": [
+        85,
+        242
+      ],
+      "end": [
+        706,
+        242
+      ]
+    },
+    "distance": 269.2773895075485,
+    "column_split": 301.25
+  },
+  {
+    "label": "Address",
+    "label_pos": [
+      122.0,
+      317.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        294
+      ],
+      "end": [
+        706,
+        294
+      ]
+    },
+    "distance": 274.00958012449126,
+    "column_split": 301.25
+  },
+  {
+    "label": "City",
+    "label_pos": [
+      105.0,
+      370.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        346
+      ],
+      "end": [
+        706,
+        346
+      ]
+    },
+    "distance": 291.033073721871,
+    "column_split": 301.25
+  },
+  {
+    "label": "Phone Number",
+    "label_pos": [
+      147.0,
+      422.5
+    ],
+    "field_line": {
+      "start": [
+        85,
+        398
+      ],
+      "end": [
+        706,
+        398
+      ]
+    },
+    "distance": 249.70482574431756,
+    "column_split": 301.25
+  },
+  {
+    "label": "Email Address",
+    "label_pos": [
+      145.5,
+      474.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        450
+      ],
+      "end": [
+        706,
+        450
+      ]
+    },
+    "distance": 250.70001994415557,
+    "column_split": 301.25
+  },
+  {
+    "label": "Date ofBirth",
+    "label_pos": [
+      138.0,
+      526.0
+    ],
+    "field_line": {
+      "start": [
+        84,
+        502
+      ],
+      "end": [
+        706,
+        502
+      ]
+    },
+    "distance": 258.11818998280614,
+    "column_split": 301.25
+  },
+  {
+    "label": "Position&Availability",
+    "label_pos": [
+      166.0,
+      578.0
+    ],
+    "field_line": {
+      "start": [
+        84,
+        602
+      ],
+      "end": [
+        706,
+        602
+      ]
+    },
+    "distance": 230.25420734483876,
+    "column_split": 301.25
+  },
+  {
+    "label": "Position Applied For",
+    "label_pos": [
+      168.0,
+      692.0
+    ],
+    "field_line": {
+      "start": [
+        417,
+        686
+      ],
+      "end": [
+        696,
+        686
+      ]
+    },
+    "distance": 388.5463292839092,
+    "column_split": 301.25
+  },
+  {
+    "label": "Desired Salary",
+    "label_pos": [
+      144.75,
+      757.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        734
+      ],
+      "end": [
+        706,
+        734
+      ]
+    },
+    "distance": 251.3509747345333,
+    "column_split": 301.25
+  },
+  {
+    "label": "DateAvailable toStart",
+    "label_pos": [
+      175.0,
+      810.0
+    ],
+    "field_line": {
+      "start": [
+        84,
+        786
+      ],
+      "end": [
+        706,
+        786
+      ]
+    },
+    "distance": 221.30521909796886,
+    "column_split": 301.25
+  },
+  {
+    "label": "Eligible toworkin theUnitedStates?",
+    "label_pos": [
+      230.0,
+      862.5
+    ],
+    "field_line": {
+      "start": [
+        84,
+        838
+      ],
+      "end": [
+        706,
+        838
+      ]
+    },
+    "distance": 166.80902253775125,
+    "column_split": 301.25
+  }
+]

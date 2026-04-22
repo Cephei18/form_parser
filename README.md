@@ -18,5 +18,17 @@
    - `input/form.png` (preferred), or
    - `input/form.pdf` (first page is auto-converted to `output/form_page_1.png`)
    - On Windows, PDF conversion requires Poppler available in `PATH`.
-4. Run the app:
+4. Run the batch script:
    - `python src/main.py`
+
+## Run API server
+
+Start the FastAPI backend used by the Next.js frontend:
+
+- `python -m uvicorn api:app --app-dir src --host 127.0.0.1 --port 8000`
+
+Available endpoints:
+
+- `GET /` health message
+- `POST /process-form` multipart file upload (`file` field)
+- `GET /files/...` generated output files (PDF and mapping preview)

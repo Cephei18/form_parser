@@ -1,0 +1,230 @@
+[
+  {
+    "label": "APPLICATION FORM FOR CUNSULTING EXECUTIVE",
+    "label_pos": [
+      722.5,
+      425.0
+    ],
+    "field_line": {
+      "start": [
+        996,
+        429
+      ],
+      "end": [
+        1104,
+        431
+      ]
+    },
+    "distance": 327.5381657150812,
+    "column_split": 1022.75
+  },
+  {
+    "label": "1 Post applied for :",
+    "label_pos": [
+      278.5,
+      784.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        796
+      ],
+      "end": [
+        1477,
+        796
+      ]
+    },
+    "distance": 934.5770433730972,
+    "column_split": 1022.75
+  },
+  {
+    "label": "2 Advertisement No. and Date :",
+    "label_pos": [
+      364.5,
+      855.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        867
+      ],
+      "end": [
+        1477,
+        867
+      ]
+    },
+    "distance": 848.5848513849396,
+    "column_split": 1022.75
+  },
+  {
+    "label": "3 Name of the Candidate (In block letters) :",
+    "label_pos": [
+      440.5,
+      924.25
+    ],
+    "field_line": {
+      "start": [
+        949,
+        937
+      ],
+      "end": [
+        1477,
+        937
+      ]
+    },
+    "distance": 772.6052112819328,
+    "column_split": 1022.75
+  },
+  {
+    "label": "4 Father's/ husband's name :",
+    "label_pos": [
+      347.0,
+      994.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        1007
+      ],
+      "end": [
+        1477,
+        1007
+      ]
+    },
+    "distance": 866.0975695613052,
+    "column_split": 1022.75
+  },
+  {
+    "label": "Age in Years, Month and Days:",
+    "label_pos": [
+      361.5,
+      1101.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        1112
+      ],
+      "end": [
+        1477,
+        1112
+      ]
+    },
+    "distance": 851.571048122234,
+    "column_split": 1022.75
+  },
+  {
+    "label": "Ex.S.Man:",
+    "label_pos": [
+      220.25,
+      1204.25
+    ],
+    "field_line": {
+      "start": [
+        958,
+        1218
+      ],
+      "end": [
+        1485,
+        1218
+      ]
+    },
+    "distance": 1001.3444087825128,
+    "column_split": 1022.75
+  },
+  {
+    "label": "7 Nationality :",
+    "label_pos": [
+      242.5,
+      1273.75
+    ],
+    "field_line": {
+      "start": [
+        949,
+        1288
+      ],
+      "end": [
+        1477,
+        1288
+      ]
+    },
+    "distance": 970.6046118270817,
+    "column_split": 1022.75
+  },
+  {
+    "label": "Letters:",
+    "label_pos": [
+      202.0,
+      1383.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        1394
+      ],
+      "end": [
+        1477,
+        1394
+      ]
+    },
+    "distance": 1011.0598399699198,
+    "column_split": 1022.75
+  },
+  {
+    "label": "9 Phone Number :",
+    "label_pos": [
+      273.25,
+      1731.5
+    ],
+    "field_line": {
+      "start": [
+        958,
+        1745
+      ],
+      "end": [
+        1485,
+        1745
+      ]
+    },
+    "distance": 948.3460932064834,
+    "column_split": 1022.75
+  },
+  {
+    "label": "10 Mobile No :",
+    "label_pos": [
+      250.0,
+      1802.0
+    ],
+    "field_line": {
+      "start": [
+        949,
+        1815
+      ],
+      "end": [
+        1477,
+        1815
+      ]
+    },
+    "distance": 963.087742627846,
+    "column_split": 1022.75
+  },
+  {
+    "label": "11 Email id :",
+    "label_pos": [
+      236.0,
+      1871.5
+    ],
+    "field_line": {
+      "start": [
+        958,
+        1885
+      ],
+      "end": [
+        1485,
+        1885
+      ]
+    },
+    "distance": 985.5924614159749,
+    "column_split": 1022.75
+  }
+]
