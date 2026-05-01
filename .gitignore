@@ -44,3 +44,7 @@ Thumbs.db
 # Frontend generated artifacts
 frontend/node_modules/
 frontend/.next/
+
+# Large/generated files
+output/
+uploads/
