@@ -1,165 +1,307 @@
+"""
+row_mapping.py  –  maps OCR rows to detected field lines.
+
+Designed for forms where:
+  - Labels are on the LEFT half of the page
+  - Field lines are on the RIGHT half of the page
+  - Labels and their field lines share approximately the SAME or SLIGHTLY LOWER Y
+  - Multi-line labels: the field line aligns with the LAST line of the label, not the center
+  - Duplicate lines (both edges of a printed underline) are de-duplicated first
+"""
+
+
+from __future__ import annotations
 from typing import Any
+import re
 
 
-def row_label_text(row: list[dict[str, Any]]) -> str:
-    """Builds label text from the full merged row."""
+# ─────────────────────────────────────────────────────────────────
+# Line geometry helpers
+# ─────────────────────────────────────────────────────────────────
+
+def _cy(line: dict) -> float:
+    return (line["start"][1] + line["end"][1]) / 2.0
+
+def _cx(line: dict) -> float:
+    return (line["start"][0] + line["end"][0]) / 2.0
+
+def _lx(line: dict) -> float:
+    return float(min(line["start"][0], line["end"][0]))
+
+def _width(line: dict) -> float:
+    return abs(line["end"][0] - line["start"][0])
+
+
+# ─────────────────────────────────────────────────────────────────
+# Step 1 — De-duplicate lines
+# Canny detects both the top and bottom edge of each printed underline.
+# Keep only the first (topmost) of any pair within y_tol px vertically
+# that share the same x-extent.
+# ─────────────────────────────────────────────────────────────────
+
+def deduplicate_lines(lines: list[dict], y_tol: float = 6.0, x_tol: float = 20.0) -> list[dict]:
+    sorted_by_y = sorted(range(len(lines)), key=lambda i: _cy(lines[i]))
+    used = [False] * len(lines)
+    kept: list[dict] = []
+
+    for pos, i in enumerate(sorted_by_y):
+        if used[i]:
+            continue
+        line = lines[i]
+        for j in sorted_by_y[pos + 1:]:
+            if used[j]:
+                continue
+            other = lines[j]
+            if abs(_cy(other) - _cy(line)) > y_tol:
+                break
+            if abs(_lx(other) - _lx(line)) < x_tol and abs(_width(other) - _width(line)) < x_tol:
+                used[j] = True
+        kept.append(line)
+
+    return kept
+
+
+# ─────────────────────────────────────────────────────────────────
+# Step 2 — Remove table-rule clusters
+# A group of 4+ lines at nearly the same Y is a table border, not a field.
+# ─────────────────────────────────────────────────────────────────
+
+def remove_table_lines(lines: list[dict], y_tol: float = 14.0, min_group: int = 4) -> list[dict]:
+    if not lines:
+        return lines
+    sl = sorted(lines, key=_cy)
+    bad: set[int] = set()
+    group = [sl[0]]
+    for prev, curr in zip(sl, sl[1:]):
+        if abs(_cy(curr) - _cy(prev)) < y_tol:
+            group.append(curr)
+        else:
+            if len(group) >= min_group:
+                bad.update(id(ln) for ln in group)
+            group = [curr]
+    if len(group) >= min_group:
+        bad.update(id(ln) for ln in group)
+    return [ln for ln in lines if id(ln) not in bad]
+
+
+# ─────────────────────────────────────────────────────────────────
+# Step 3 — Row geometry
+# bottom_y = Y of the lowest word (field line aligns with last label line).
+# right_x  = capped at column_split so wide labels don't overshoot.
+# ─────────────────────────────────────────────────────────────────
+
+def row_label_text(row: list[dict]) -> str:
     return " ".join(item["text"] for item in row).strip()
 
 
-def row_y_bounds(row: list[dict[str, Any]], pad: int = 20) -> tuple[float, float]:
-    """Returns vertical min/max bounds for a row with optional padding."""
-    ys = [item["center"][1] for item in row]
-    return min(ys) - pad, max(ys) + pad
+def row_geometry(row: list[dict], column_split: float = 620.0) -> dict:
+    """
+    column_split: approximate x boundary between the label column and the
+    field-line column.  Labels whose text extends past this (e.g. because
+    of long parentheticals) are capped so right_x never exceeds it.
+    Tune this to ~60-70 % of your form's page width.
+    """
+    ys, rights, lefts = [], [], []
+    for item in row:
+        if "bbox" in item:
+            bbox = item["bbox"]
+            if isinstance(bbox, (list, tuple)) and len(bbox) == 4 and all(isinstance(v, (int, float)) for v in bbox):
+                bx, by, bw, bh = bbox
+                ys.append(float(by + bh))
+                rights.append(float(bx + bw))
+                lefts.append(float(bx))
+            else:
+                # polygon or list-of-points
+                try:
+                    xs = [float(pt[0]) for pt in bbox]
+                    ys_pts = [float(pt[1]) for pt in bbox]
+                    ys.append(max(ys_pts))
+                    rights.append(max(xs))
+                    lefts.append(min(xs))
+                except Exception:
+                    cx, cy = item.get("center", (0.0, 0.0))
+                    ys.append(float(cy))
+                    rights.append(float(cx))
+                    lefts.append(float(cx))
+        else:
+            cx, cy = item.get("center", (0.0, 0.0))
+            ys.append(float(cy))
+            rights.append(float(cx))
+            lefts.append(float(cx))
+
+    raw_right = max(rights)
+    return {
+        "bottom_y": max(ys),
+        "top_y":    min(ys),
+        "center_y": (min(ys) + max(ys)) / 2.0,
+        "right_x":  min(raw_right, column_split),   # ← capped
+        "raw_right_x": raw_right,
+        "left_x":   min(lefts),
+    }
 
 
-def lines_in_row_window(
-    lines: list[dict[str, Any]], y_min: float, y_max: float
-) -> list[dict[str, Any]]:
-    """Keeps only lines whose center Y falls within the row window."""
-    out: list[dict[str, Any]] = []
-    for line in lines:
-        y = (line["start"][1] + line["end"][1]) / 2
-        if y_min <= y <= y_max:
-            out.append(line)
-    return out
+# ─────────────────────────────────────────────────────────────────
+# Step 4 — Match each label to its nearest UNASSIGNED field line
+#
+# "Unassigned" means not yet the primary match of any earlier label.
+# This prevents two labels from sharing the same line as their anchor.
+#
+# Search window: [bottom_y - above_pad, bottom_y + below_pad]
+# Must be to the right of the (capped) label right edge.
+# Score: vertical distance only; tie-break by wider line.
+# ─────────────────────────────────────────────────────────────────
+
+def best_field_line(
+    label_bottom_y: float,
+    label_right_x: float,
+    candidates: list[dict],
+    assigned_ids: set[int],
+    above_pad: float = 10.0,
+    below_pad: float = 75.0,
+) -> tuple[dict | None, float]:
+    y_min = label_bottom_y - above_pad
+    y_max = label_bottom_y + below_pad
+
+    pool = [
+        ln for ln in candidates
+        if id(ln) not in assigned_ids
+        and y_min <= _cy(ln) <= y_max
+        and _lx(ln) >= label_right_x - 40
+    ]
+
+    if not pool:
+        return None, float("inf")
+
+    pool.sort(key=lambda ln: (abs(_cy(ln) - label_bottom_y), -_width(ln)))
+    best = pool[0]
+    return best, abs(_cy(best) - label_bottom_y)
 
 
-def score_line(line: dict[str, Any], label_center: tuple[float, float]) -> float:
-    """Scores candidate lines by row alignment, right-side distance, and line width."""
-    x1, y1 = line["start"]
-    x2, y2 = line["end"]
+# ─────────────────────────────────────────────────────────────────
+# Step 5 — Expand multiline address blocks
+#
+# Only pull in additional lines that are:
+#   • x-aligned with the seed (same field column)
+#   • directly below with no label row between them
+#   • within y_step px of the previous grouped line
+#
+# label_ys is the sorted list of all label bottom_y values — used to
+# detect if a label exists between two candidate lines (which would mean
+# the next line belongs to that label, not to an address continuation).
+# ─────────────────────────────────────────────────────────────────
 
-    cx = (x1 + x2) / 2
-    cy = (y1 + y2) / 2
+def expand_multiline(
+    seed: dict,
+    pool: list[dict],
+    label_ys: list[float],
+    x_tol: float = 120.0,
+    y_step: float = 75.0,
+) -> list[dict]:
+    visited = {id(seed)}
+    group = [seed]
+    frontier = [seed]
 
-    width = abs(x2 - x1)
+    while frontier:
+        current = frontier.pop()
+        ccx, ccy = _cx(current), _cy(current)
 
-    vertical_diff = abs(cy - label_center[1])
-    horizontal_diff = cx - label_center[0]
+        for ln in pool:
+            if id(ln) in visited:
+                continue
+            lx, ly = _cx(ln), _cy(ln)
+            if not (abs(lx - ccx) < x_tol and 0 < (ly - ccy) < y_step):
+                continue
+            # Check: is there a label between ccy and ly?
+            # If yes, that line belongs to that label — don't steal it.
+            label_between = any(ccy < label_y < ly for label_y in label_ys)
+            if label_between:
+                continue
+            visited.add(id(ln))
+            group.append(ln)
+            frontier.append(ln)
 
-    if horizontal_diff <= 0:
-        return float("inf")
-
-    return vertical_diff * 5 + horizontal_diff - width * 0.5
+    return sorted(group, key=_cy)
 
 
-def is_right_of_row(
-    line: dict[str, Any], row: list[dict[str, Any]], min_gap: int = 40
-) -> bool:
-    """Keeps lines that are clearly to the right of the row text extent."""
-    row_right = max(item["center"][0] for item in row)
-    line_center_x = (line["start"][0] + line["end"][0]) / 2
-    return line_center_x > (row_right + min_gap)
+# ─────────────────────────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────────────────────────
+
+_NOISE_KEYWORDS = {"snb", "jspcb", "affix", "contd"}
 
 
 def map_rows_to_fields(
-    rows: list[list[dict[str, Any]]],
-    lines: list[dict[str, Any]],
-    row_pad: int = 25,
+    rows: list[list[dict]],
+    lines: list[dict],
+    above_pad: float = 10.0,
+    below_pad: float = 75.0,
+    max_vert_dist: float = 85.0,
+    column_split: float = 620.0,
 ) -> list[dict[str, Any]]:
-    """Maps each merged row to its most likely field line."""
-    mappings: list[dict[str, Any]] = []
-    noise_keywords = ["snb", "jspcb", "affix", "contd"]
+    """
+    Parameters
+    ----------
+    rows          : grouped OCR rows from row_grouping
+    lines         : filtered horizontal lines from detect_fields
+    above_pad     : px above label bottom_y included in search window
+    below_pad     : px below label bottom_y included in search window
+    max_vert_dist : reject match if vertical distance exceeds this (px)
+    column_split  : x boundary separating label column from field column;
+                    label right_x is capped here so wide labels don't
+                    overshoot past the field lines
+    """
+    clean = deduplicate_lines(lines)
+    clean = remove_table_lines(clean)
+    print(f"[map] {len(lines)} raw → {len(clean)} clean lines")
 
+    # Pre-compute all label bottom_y values for multiline expansion guard
+    all_geoms = []
+    valid_rows = []
     for row in rows:
         if not row:
             continue
-
-        label_text = row_label_text(row)
-        low = label_text.lower()
-        if any(keyword in low for keyword in noise_keywords):
+        label = row_label_text(row)
+        if any(kw in label.lower() for kw in _NOISE_KEYWORDS):
             continue
+        geom = row_geometry(row, column_split=column_split)
+        all_geoms.append(geom)
+        valid_rows.append((label, geom))
 
-        label_center = (
-            sum(item["center"][0] for item in row) / len(row),
-            sum(item["center"][1] for item in row) / len(row),
+    label_ys = sorted(g["bottom_y"] for g in all_geoms)
+
+    assigned_primary: set[int] = set()   # line ids used as primary anchors
+    mappings: list[dict] = []
+
+    for label, geom in valid_rows:
+        bottom_y = geom["bottom_y"]
+        right_x  = geom["right_x"]
+
+        best, vert_dist = best_field_line(
+            bottom_y, right_x, clean,
+            assigned_primary,
+            above_pad=above_pad,
+            below_pad=below_pad,
         )
 
-        y_min, y_max = row_y_bounds(row, pad=row_pad)
-        candidates = lines_in_row_window(lines, y_min, y_max)
-
-        # detect table regions once per mapping run (lines are full set)
-        # (compute outside the loop would be slightly more efficient; kept here for clarity)
-        table_regions = []
-        if lines:
-            lines_sorted = sorted(lines, key=lambda l: l["start"][1])
-            current_group = [lines_sorted[0]]
-            for i in range(1, len(lines_sorted)):
-                prev = lines_sorted[i - 1]
-                curr = lines_sorted[i]
-                if abs(curr["start"][1] - prev["start"][1]) < 15:
-                    current_group.append(curr)
-                else:
-                    if len(current_group) >= 5:
-                        table_regions.append(current_group)
-                    current_group = [curr]
-            if len(current_group) >= 5:
-                table_regions.append(current_group)
-
-        def is_in_table(line):
-            for region in table_regions:
-                if line in region:
-                    return True
-            return False
-
-        # basic table detection: skip rows with many short lines
-        if len(candidates) >= 8:
+        if best is None:
+            print(f"[map] NO match  '{label}'  bottom_y={bottom_y:.0f}  right_x={right_x:.0f}")
             continue
 
-        best_line = None
-        best_score = float("inf")
-
-        for line in candidates:
-            if not is_right_of_row(line, row):
-                continue
-
-            score = score_line(line, label_center)
-
-            if score < best_score:
-                best_score = score
-                best_line = line
-
-        # safety: ignore very weak matches
-        if best_line is None or best_score > 500:
+        if vert_dist > max_vert_dist:
+            print(f"[map] TOO FAR ({vert_dist:.0f}px)  '{label}'")
             continue
 
-        # skip lines that are part of detected table regions
-        if is_in_table(best_line):
-            continue
+        print(f"[map] OK  '{label}'  vert={vert_dist:.1f}  line_y={_cy(best):.0f}  bot={bottom_y:.0f}")
 
-        # expand multiline fields (iterative grouping)
-        def expand_multiline_field(best_line, lines, y_threshold=60, x_tolerance=80):
-            grouped = [best_line]
+        # Mark the primary line as used so no other label can claim it
+        assigned_primary.add(id(best))
 
-            added = True
-            while added:
-                added = False
+        grouped = expand_multiline(best, clean, label_ys, y_step=below_pad)
 
-                for ln in lines:
-                    if ln in grouped:
-                        continue
-
-                    for g in grouped:
-                        gx1, gy1 = g["start"]
-                        lx1, ly1 = ln["start"]
-
-                        x_aligned = abs(lx1 - gx1) < x_tolerance
-                        y_close = abs(ly1 - gy1) < y_threshold
-
-                        if x_aligned and y_close:
-                            grouped.append(ln)
-                            added = True
-
-            return sorted(grouped, key=lambda l: l["start"][1])
-
-        grouped = expand_multiline_field(best_line, candidates)
-
-        mappings.append(
-            {
-                "label": label_text,
-                "label_pos": label_center,
-                "field_lines": grouped,
-            }
-        )
+        mappings.append({
+            "label":       label,
+            "label_pos":   ((geom["left_x"] + geom["raw_right_x"]) / 2.0, geom["center_y"]),
+            "field_lines": grouped,
+        })
 
     return mappings

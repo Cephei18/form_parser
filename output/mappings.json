@@ -1,1 +1,192 @@
-[]
+[
+  {
+    "label": "1 Post applied for :",
+    "label_pos": [
+      285.0,
+      759.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          750
+        ],
+        "end": [
+          1518,
+          750
+        ]
+      }
+    ]
+  },
+  {
+    "label": "2 Advertisement No. and Date :",
+    "label_pos": [
+      373.0,
+      823.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          817
+        ],
+        "end": [
+          1518,
+          817
+        ]
+      }
+    ]
+  },
+  {
+    "label": "3 Name of the Candidate (In block letters) :",
+    "label_pos": [
+      450.5,
+      885.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          948
+        ],
+        "end": [
+          1518,
+          948
+        ]
+      }
+    ]
+  },
+  {
+    "label": "5 Date of Birth (in Christian Era) Age in Years, Month and Days:",
+    "label_pos": [
+      374.5,
+      1039.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          1047
+        ],
+        "end": [
+          1518,
+          1047
+        ]
+      }
+    ]
+  },
+  {
+    "label": "6 Whether belongs to SC/ ST/ OBC / UR/ PwD/ Ex.S.Man:",
+    "label_pos": [
+      483.0,
+      1138.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          985,
+          1147
+        ],
+        "end": [
+          1527,
+          1147
+        ]
+      }
+    ]
+  },
+  {
+    "label": "7 Nationality :",
+    "label_pos": [
+      249.5,
+      1219.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          1213
+        ],
+        "end": [
+          1518,
+          1213
+        ]
+      }
+    ]
+  },
+  {
+    "label": "8 Present postal address with pin code in Block Letters:",
+    "label_pos": [
+      482.5,
+      1300.5
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          1313
+        ],
+        "end": [
+          1518,
+          1313
+        ]
+      }
+    ]
+  },
+  {
+    "label": "9 Phone Number :",
+    "label_pos": [
+      281.5,
+      1648.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          985,
+          1643
+        ],
+        "end": [
+          1527,
+          1643
+        ]
+      }
+    ]
+  },
+  {
+    "label": "10 Mobile No :",
+    "label_pos": [
+      255.0,
+      1712.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          975,
+          1709
+        ],
+        "end": [
+          1518,
+          1709
+        ]
+      }
+    ]
+  },
+  {
+    "label": "11 Email id :",
+    "label_pos": [
+      241.0,
+      1778.0
+    ],
+    "field_lines": [
+      {
+        "start": [
+          985,
+          1775
+        ],
+        "end": [
+          1527,
+          1775
+        ]
+      }
+    ]
+  }
+]
