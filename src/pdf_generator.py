@@ -30,28 +30,28 @@ def create_pdf_with_fields(image_path, mappings, output_path):
     c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
 
     for index, mapping in enumerate(mappings, start=1):
-        line = mapping["field_line"]
+        # Some mappings may have multiple lines (multiline fields).
+        for li, line in enumerate(mapping.get("field_lines", [])):
+            x1, y1 = line["start"]
+            x2, y2 = line["end"]
 
-        x1, y1 = line["start"]
-        x2, y2 = line["end"]
+            pdf_x = x1 * scale_x + 5
+            pdf_y = page_height - (y1 * scale_y)
 
-        field_x = min(x1, x2) * scale_x
-        field_width = max(24.0, abs(x2 - x1) * scale_x)
-        field_height = 14.0
+            width = (x2 - x1) * scale_x
+            height_field = 15
 
-        # Convert image-space y (top-origin) to PDF-space y (bottom-origin).
-        row_y = ((y1 + y2) / 2.0) * scale_y
-        field_y = max(0.0, page_height - row_y - (field_height / 2.0))
+            field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
 
-        c.acroForm.textfield(
-            name=_safe_field_name(mapping.get("label", "field"), index),
-            tooltip=mapping.get("label", "Field"),
-            x=field_x,
-            y=field_y,
-            width=field_width,
-            height=field_height,
-            borderStyle="underlined",
-            forceBorder=True,
-        )
+            c.acroForm.textfield(
+                name=field_name,
+                tooltip=mapping.get("label", "Field"),
+                x=pdf_x,
+                y=pdf_y,
+                width=max(10, width - 10),
+                height=height_field,
+                borderStyle="underlined",
+                forceBorder=True,
+            )
 
     c.save()

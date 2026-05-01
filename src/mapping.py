@@ -29,6 +29,72 @@ def infer_column_split(ocr_data, fallback_split: int = 300):
     return split
 
 
+def expand_multiline_field(best_line, lines, y_threshold=60, x_tolerance=80):
+    grouped = [best_line]
+
+    added = True
+    while added:
+        added = False
+
+        for ln in lines:
+            if ln in grouped:
+                continue
+
+            for g in grouped:
+                gx1, gy1 = g["start"]
+                lx1, ly1 = ln["start"]
+
+                x_aligned = abs(lx1 - gx1) < x_tolerance
+                y_close = abs(ly1 - gy1) < y_threshold
+
+                if x_aligned and y_close:
+                    grouped.append(ln)
+                    added = True
+
+    return sorted(grouped, key=lambda l: l["start"][1])
+
+
+def lines_in_row_window(lines, y_min, y_max):
+    out = []
+    for l in lines:
+        _, y = line_center(l)
+        if y_min <= y <= y_max:
+            out.append(l)
+    return out
+
+
+def is_table_row(row_lines, threshold=8):
+    return len(row_lines) >= threshold
+
+
+def detect_table_regions(lines, y_threshold=15, min_lines=5):
+    """Detect vertically dense regions of lines (likely tables)."""
+    regions = []
+
+    if not lines:
+        return regions
+
+    lines_sorted = sorted(lines, key=lambda l: l["start"][1])
+
+    current_group = [lines_sorted[0]]
+
+    for i in range(1, len(lines_sorted)):
+        prev = lines_sorted[i - 1]
+        curr = lines_sorted[i]
+
+        if abs(curr["start"][1] - prev["start"][1]) < y_threshold:
+            current_group.append(curr)
+        else:
+            if len(current_group) >= min_lines:
+                regions.append(current_group)
+            current_group = [curr]
+
+    if len(current_group) >= min_lines:
+        regions.append(current_group)
+
+    return regions
+
+
 def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 25, fallback_split: int = 300):
     mappings = []
     assigned_lines = set()
@@ -38,12 +104,29 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 25, fallback_spli
     labels = [item for item in ocr_data if item["center"][0] < column_split]
     field_lines = [line for line in lines if line_center(line)[0] > column_split]
 
+    # detect table-like regions among candidate field lines
+    table_regions = detect_table_regions(field_lines)
+
+    def is_in_table(line):
+        for region in table_regions:
+            if line in region:
+                return True
+        return False
+
     for item in labels:
         label = item["text"]
         label_center = item["center"]
 
         closest_line = None
         min_dist = float("inf")
+
+        # avoid mapping rows that clearly look like table rows
+        y_min = label_center[1] - row_tolerance
+        y_max = label_center[1] + row_tolerance
+        row_lines = lines_in_row_window(field_lines, y_min, y_max)
+
+        if is_table_row(row_lines):
+            continue
 
         for line in field_lines:
             candidate_center = line_center(line)
@@ -62,17 +145,31 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 25, fallback_spli
                     min_dist = dist
                     closest_line = line
 
-        if closest_line:
-            assigned_lines.add(id(closest_line))
-            mappings.append(
-                {
-                    "label": label,
-                    "label_pos": label_center,
-                    "field_line": closest_line,
-                    "distance": min_dist,
-                    "column_split": column_split,
-                }
-            )
+
+        # safety: skip weak matches or no match
+        if closest_line is None or min_dist > 500:
+            continue
+
+        # skip if this line is inside a detected table region
+        if is_in_table(closest_line):
+            continue
+
+        # expand into multiline group
+        grouped = expand_multiline_field(closest_line, field_lines)
+
+        # mark all grouped lines as assigned
+        for g in grouped:
+            assigned_lines.add(id(g))
+
+        mappings.append(
+            {
+                "label": label,
+                "label_pos": label_center,
+                "field_lines": grouped,
+                "distance": min_dist,
+                "column_split": column_split,
+            }
+        )
 
     return mappings
 
@@ -85,19 +182,20 @@ def draw_mapping(image_path, mappings, output_path):
     for mapping in mappings:
         label_x, label_y = mapping["label_pos"]
 
-        x1, y1 = mapping["field_line"]["start"]
-        x2, y2 = mapping["field_line"]["end"]
+        # draw to the first field line center for visualization
+        if mapping.get("field_lines"):
+            x1, y1 = mapping["field_lines"][0]["start"]
+            x2, y2 = mapping["field_lines"][0]["end"]
 
-        field_x = (x1 + x2) // 2
-        field_y = (y1 + y2) // 2
+            field_x = (x1 + x2) // 2
+            field_y = (y1 + y2) // 2
 
-        # Draw the explicit label-to-field relationship.
-        cv2.line(
-            img,
-            (int(label_x), int(label_y)),
-            (int(field_x), int(field_y)),
-            (0, 0, 255),
-            2,
-        )
+            cv2.line(
+                img,
+                (int(label_x), int(label_y)),
+                (int(field_x), int(field_y)),
+                (0, 0, 255),
+                2,
+            )
 
     cv2.imwrite(output_path, img)
