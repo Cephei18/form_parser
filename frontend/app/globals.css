@@ -8,6 +8,10 @@
 
 body {
   @apply bg-mist text-ink antialiased;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34rem),
+    linear-gradient(135deg, #f8fafc 0%, #eef6f6 46%, #fff7f5 100%);
+  min-height: 100vh;
 }
 
 a {

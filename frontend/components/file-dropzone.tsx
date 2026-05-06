@@ -44,7 +44,7 @@ export function FileDropzone({ onFileSelect, disabled }: FileDropzoneProps) {
     <div
       onDrop={onDrop}
       onDragOver={onDragOver}
-      className="rounded-xl border-2 border-dashed border-edge bg-white p-6 text-center shadow-panel"
+      className="group rounded-3xl border border-dashed border-brand/40 bg-white/80 p-8 text-center shadow-panel backdrop-blur transition hover:-translate-y-0.5 hover:border-brand hover:bg-white"
       aria-disabled={disabled}
     >
       <input
@@ -56,17 +56,20 @@ export function FileDropzone({ onFileSelect, disabled }: FileDropzoneProps) {
         onChange={onInputChange}
         disabled={disabled}
       />
-      <label htmlFor="form-upload" className="block text-sm font-semibold text-ink">
-        Drag and drop a form file here
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-2xl text-brand transition group-hover:scale-105">
+        +
+      </div>
+      <label htmlFor="form-upload" className="block text-lg font-semibold text-ink">
+        Drop a scanned form here
       </label>
-      <p className="mt-1 text-sm text-slate-600">PNG, JPG, or PDF up to 20MB</p>
+      <p className="mt-2 text-sm text-slate-600">PDF, PNG, or JPG. Your fillable PDF is created in one flow.</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-4 rounded-lg border border-edge px-4 py-2 text-sm font-medium transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-5 rounded-2xl border border-edge bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
       >
-        Browse files
+        Choose file
       </button>
     </div>
   );

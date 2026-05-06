@@ -11,9 +11,9 @@ export function FilePreview({ src, mimeType, title }: FilePreviewProps) {
   const isImage = ["image/png", "image/jpeg"].includes(mimeType as SupportedFileType);
 
   return (
-    <section aria-label={title} className="overflow-hidden rounded-xl border border-edge bg-white">
-      <header className="border-b border-edge px-4 py-3 text-sm font-medium">{title}</header>
-      <div className="h-[420px] w-full bg-slate-50">
+    <section aria-label={title} className="overflow-hidden rounded-3xl border border-edge bg-white shadow-panel">
+      <header className="border-b border-edge px-4 py-3 text-sm font-semibold text-ink">{title}</header>
+      <div className="h-[420px] w-full bg-slate-50 sm:h-[520px]">
         {isPdf ? (
           <iframe src={src} title={title} className="h-full w-full" />
         ) : isImage ? (

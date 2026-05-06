@@ -1,9 +1,12 @@
+import logging
+
 try:
     from paddleocr import PaddleOCR
 except ModuleNotFoundError:
     PaddleOCR = None  # type: ignore[assignment]
 
 ocr = None
+logger = logging.getLogger(__name__)
 
 
 def _get_ocr_model():
@@ -17,14 +20,21 @@ def _get_ocr_model():
 
     # Initialize OCR model once so repeated calls stay fast.
     if ocr is None:
+        logger.info("[ocr] initializing PaddleOCR model")
         ocr = PaddleOCR(use_angle_cls=True)
+        logger.info("[ocr] PaddleOCR model ready")
 
     return ocr
 
 
 def extract_text(image_path):
+    logger.info("[ocr] extracting text from %s", image_path)
     model = _get_ocr_model()
     results = model.ocr(image_path)
+
+    if not results:
+        logger.info("[ocr] no OCR results returned for %s", image_path)
+        return []
 
     extracted = []
 
