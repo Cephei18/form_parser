@@ -252,7 +252,7 @@ def map_rows_to_fields(
     """
     clean = deduplicate_lines(lines)
     clean = remove_table_lines(clean)
-    print(f"[map] {len(lines)} raw → {len(clean)} clean lines")
+    print(f"[map] {len(lines)} raw -> {len(clean)} clean lines")
 
     # Pre-compute all label bottom_y values for multiline expansion guard
     all_geoms = []
@@ -293,10 +293,10 @@ def map_rows_to_fields(
 
         print(f"[map] OK  '{label}'  vert={vert_dist:.1f}  line_y={_cy(best):.0f}  bot={bottom_y:.0f}")
 
-        # Mark the primary line as used so no other label can claim it
-        assigned_primary.add(id(best))
-
         grouped = expand_multiline(best, clean, label_ys, y_step=below_pad)
+
+        # Mark the grouped field lines as used so a multiline field stays logical.
+        assigned_primary.update(id(line) for line in grouped)
 
         mappings.append({
             "label":       label,

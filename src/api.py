@@ -6,7 +6,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.main import resolve_uploaded_input, run_pipeline
+from main import resolve_uploaded_input, run_pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_ROOT = PROJECT_ROOT / "output"
@@ -23,13 +23,7 @@ app = FastAPI(title="Form Parser API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    # Allow local frontend dev servers (ports 3000 and 3001) during development.
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

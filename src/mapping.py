@@ -182,10 +182,9 @@ def draw_mapping(image_path, mappings, output_path):
     for mapping in mappings:
         label_x, label_y = mapping["label_pos"]
 
-        # draw to the first field line center for visualization
-        if mapping.get("field_lines"):
-            x1, y1 = mapping["field_lines"][0]["start"]
-            x2, y2 = mapping["field_lines"][0]["end"]
+        for line in mapping.get("field_lines", []):
+            x1, y1 = line["start"]
+            x2, y2 = line["end"]
 
             field_x = (x1 + x2) // 2
             field_y = (y1 + y2) // 2
@@ -197,5 +196,29 @@ def draw_mapping(image_path, mappings, output_path):
                 (0, 0, 255),
                 2,
             )
+            cv2.rectangle(
+                img,
+                (int(min(x1, x2)), int(min(y1, y2) - 8)),
+                (int(max(x1, x2)), int(max(y1, y2) + 12)),
+                (0, 200, 0),
+                2,
+            )
+
+        if mapping.get("field_type") == "checkbox":
+            for box in mapping.get("field_bboxes", []):
+                x = int(box["x"])
+                y = int(box["y"])
+                w = int(box["width"])
+                h = int(box["height"])
+                field_x = x + w // 2
+                field_y = y + h // 2
+                cv2.line(
+                    img,
+                    (int(label_x), int(label_y)),
+                    (int(field_x), int(field_y)),
+                    (0, 0, 255),
+                    2,
+                )
+                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 180, 255), 2)
 
     cv2.imwrite(output_path, img)

@@ -13,6 +13,24 @@ def _safe_field_name(label: str, index: int) -> str:
     return f"{cleaned}_{index}"
 
 
+def _field_boxes_from_mapping(mapping):
+    boxes = mapping.get("field_bboxes")
+    if boxes:
+        return boxes
+
+    fallback_boxes = []
+    for line in mapping.get("field_lines", []):
+        x1, y1 = line["start"]
+        x2, y2 = line["end"]
+        fallback_boxes.append({
+            "x": min(x1, x2),
+            "y": max(0, min(y1, y2) - 4),
+            "width": abs(x2 - x1),
+            "height": 18,
+        })
+    return fallback_boxes
+
+
 def create_pdf_with_fields(image_path, mappings, output_path):
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -30,28 +48,41 @@ def create_pdf_with_fields(image_path, mappings, output_path):
     c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
 
     for index, mapping in enumerate(mappings, start=1):
-        # Some mappings may have multiple lines (multiline fields).
-        for li, line in enumerate(mapping.get("field_lines", [])):
-            x1, y1 = line["start"]
-            x2, y2 = line["end"]
+        field_boxes = _field_boxes_from_mapping(mapping)
 
-            pdf_x = x1 * scale_x + 5
-            pdf_y = page_height - (y1 * scale_y)
+        for li, box in enumerate(field_boxes):
+            pdf_x = float(box["x"]) * scale_x + 5
+            box_y = float(box["y"])
+            box_height = float(box.get("height", 18))
+            pdf_y = page_height - ((box_y + box_height) * scale_y)
 
-            width = (x2 - x1) * scale_x
-            height_field = 15
+            width = float(box["width"]) * scale_x
+            height_field = max(12, box_height * scale_y)
 
             field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
 
-            c.acroForm.textfield(
-                name=field_name,
-                tooltip=mapping.get("label", "Field"),
-                x=pdf_x,
-                y=pdf_y,
-                width=max(10, width - 10),
-                height=height_field,
-                borderStyle="underlined",
-                forceBorder=True,
-            )
+            if mapping.get("field_type") == "checkbox" or box.get("field_type") == "checkbox":
+                size = max(10, min(width, height_field))
+                c.acroForm.checkbox(
+                    name=field_name,
+                    tooltip=mapping.get("label", "Checkbox"),
+                    x=pdf_x,
+                    y=pdf_y,
+                    size=size,
+                    borderWidth=1,
+                    buttonStyle="check",
+                    forceBorder=True,
+                )
+            else:
+                c.acroForm.textfield(
+                    name=field_name,
+                    tooltip=mapping.get("label", "Field"),
+                    x=pdf_x,
+                    y=pdf_y,
+                    width=max(10, width - 10),
+                    height=height_field,
+                    borderStyle="underlined",
+                    forceBorder=True,
+                )
 
     c.save()

@@ -29,26 +29,14 @@ def resolve_input_image(project_root: Path) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
         converted_path = output_dir / "form_page_1.png"
 
-        # Try pdf2image first (recommended). If it's not available or fails,
-        # fall back to PyMuPDF (fitz) which does not require Poppler on Windows.
-        pages = None
         try:
             from pdf2image import convert_from_path
 
             pages = convert_from_path(str(pdf_path), first_page=1, last_page=1)
-        except Exception:
-            try:
-                import fitz  # PyMuPDF
-
-                doc = fitz.open(str(pdf_path))
-                page = doc.load_page(0)
-                pix = page.get_pixmap(dpi=150)
-                pix.save(converted_path)
-                pages = [None]
-            except Exception as exc:
-                raise RuntimeError(
-                    "Failed to convert input/form.pdf. Install pdf2image+Poppler or ensure PyMuPDF is available."
-                ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to convert input/form.pdf. On Windows, install Poppler and add it to PATH."
+            ) from exc
 
         if not pages:
             raise RuntimeError("PDF conversion produced no pages.")
@@ -71,24 +59,14 @@ def resolve_uploaded_input(input_file: Path, output_dir: Path) -> Path:
 
     converted_path = output_dir / f"converted_{uuid.uuid4().hex}.png"
 
-    pages = None
     try:
         from pdf2image import convert_from_path
 
         pages = convert_from_path(str(input_file), first_page=1, last_page=1)
-    except Exception:
-        try:
-            import fitz
-
-            doc = fitz.open(str(input_file))
-            page = doc.load_page(0)
-            pix = page.get_pixmap(dpi=150)
-            pix.save(converted_path)
-            pages = [None]
-        except Exception as exc:
-            raise RuntimeError(
-                "Failed to convert uploaded PDF. Install pdf2image+Poppler or ensure PyMuPDF is available."
-            ) from exc
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to convert uploaded PDF. On Windows, install Poppler and add it to PATH."
+        ) from exc
 
     if not pages:
         raise RuntimeError("PDF conversion produced no pages.")
@@ -98,13 +76,11 @@ def resolve_uploaded_input(input_file: Path, output_dir: Path) -> Path:
 
 
 def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
-    from src.detect_fields import detect_lines, draw_lines, filter_field_lines
-    from src.mapping import draw_mapping
-    from src.ocr import extract_text
-    from src.pdf_generator import create_pdf_with_fields
-    from src.row_grouping import group_rows, is_useful_row, smart_merge_rows
-    from src.row_mapping import map_rows_to_fields
-    from src.utils import get_center
+    from detect_fields import detect_lines, draw_lines, filter_field_lines
+    from mapping import draw_mapping, map_labels_to_fields
+    from ocr import extract_text
+    from pdf_generator import create_pdf_with_fields
+    from utils import get_center
 
     output_dir.mkdir(parents=True, exist_ok=True)
     image_path_str = str(image_path)
@@ -118,28 +94,16 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         center = get_center(bbox)
         result.append({"text": text, "bbox": bbox, "center": center})
 
-    rows = group_rows(result, threshold=20)
-    rows = smart_merge_rows(rows)
-    rows = [row for row in rows if is_useful_row(row)]
-
-    for i, row in enumerate(rows):
-        print(f"\nRow {i + 1}:")
-        for row_item in row:
-            print(row_item["text"])
-
     result_path = output_dir / "result.json"
     with result_path.open("w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     lines = detect_lines(image_path_str)
     filtered_lines = filter_field_lines(lines, result)
-    filtered_lines = [
-        line for line in filtered_lines if abs(line["end"][0] - line["start"][0]) > 120
-    ]
     lines_output_path = output_dir / "lines_detected.png"
     draw_lines(image_path_str, filtered_lines, str(lines_output_path))
 
-    mappings = map_rows_to_fields(rows, filtered_lines)
+    mappings = map_labels_to_fields(result, filtered_lines)
     mappings_path = output_dir / "mappings.json"
     with mappings_path.open("w", encoding="utf-8") as f:
         json.dump(mappings, f, ensure_ascii=False, indent=2)
@@ -177,8 +141,8 @@ def run_default_pipeline() -> dict[str, Any]:
     print(f"Saved fillable PDF: {output['pdf_output_path']}")
 
     for mapping in output["mappings"]:
-        field_lines = mapping.get("field_lines", [])
-        print(f'{mapping["label"]} -> {field_lines}')
+        field_line = mapping["field_line"]
+        print(f'{mapping["label"]} -> {field_line}')
 
     return output
 
