@@ -77,12 +77,5 @@ def smart_merge_rows(
 
 
 def is_useful_row(row: list[dict[str, Any]]) -> bool:
-    """Filters out decorative/header rows that are not field labels."""
-    text = " ".join(item["text"].lower() for item in row)
-
-    if "application form" in text:
-        return False
-    if "photograph" in text:
-        return False
-
-    return True
+    """Keep rows unless they are structurally empty."""
+    return any(item.get("text", "").strip() for item in row)

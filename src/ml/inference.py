@@ -63,7 +63,7 @@ def ml_pipeline(ocr_results: List[Dict]):
     for item in ocr_results:
         text = (item.get("text") or "").lower()
 
-        if ":" in text or any(k in text for k in ["name", "date", "address", "email"]):
+        if ":" in text or text.endswith("?"):
             labels.append(item)
         else:
             values.append(item)

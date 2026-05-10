@@ -178,7 +178,7 @@ def best_field_line(
 
 
 # ─────────────────────────────────────────────────────────────────
-# Step 5 — Expand multiline address blocks
+# Step 5 — Expand multiline field blocks
 #
 # Only pull in additional lines that are:
 #   • x-aligned with the seed (same field column)
@@ -187,7 +187,7 @@ def best_field_line(
 #
 # label_ys is the sorted list of all label bottom_y values — used to
 # detect if a label exists between two candidate lines (which would mean
-# the next line belongs to that label, not to an address continuation).
+# the next line belongs to that label, not to the current continuation).
 # ─────────────────────────────────────────────────────────────────
 
 def expand_multiline(

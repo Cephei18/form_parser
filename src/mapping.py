@@ -95,27 +95,16 @@ def build_layout_metrics(ocr_data, field_lines):
 
 
 def _semantic_hint_score(label: str, line) -> tuple[float, list[str]]:
-    text = (label or "").lower()
     source = line.get("field_type", "line")
     score = 0.55
     reasons = []
 
-    multiline_words = ("address", "street", "remarks", "description", "details")
-    short_words = ("age", "zip", "pin", "code", "no.", "id")
-    date_words = ("date", "dob", "birth")
-
-    if any(word in text for word in multiline_words):
-        score += 0.18
-        reasons.append("semantic_multiline_label")
-    if any(word in text for word in date_words):
-        score += 0.08
-        reasons.append("semantic_date_label")
-    if any(word in text for word in short_words) and line_length(line) < 260:
-        score += 0.12
-        reasons.append("semantic_short_field_size")
     if source in {"box", "weak_line", "fallback_text_region"}:
         score += 0.06
         reasons.append(f"field_source_{source}")
+    if line_length(line) <= 260:
+        score += 0.04
+        reasons.append("compact_field_candidate")
 
     return _clamp01(score), reasons
 
@@ -256,10 +245,35 @@ def infer_column_split(ocr_data, fallback_split: int = 300):
     return split
 
 
-def _is_multiline_label(label: str) -> bool:
-    text = (label or "").lower()
-    multiline_words = ("address", "street", "remarks", "description", "details")
-    return any(word in text for word in multiline_words)
+def _intervening_label_exists(current_y, candidate_y, ocr_data, column_split, avg_line_height):
+    upper = min(current_y, candidate_y) + avg_line_height * 0.35
+    lower = max(current_y, candidate_y) - avg_line_height * 0.35
+    if lower <= upper:
+        return False
+
+    for item in ocr_data or []:
+        center = item.get("center")
+        text = item.get("text")
+        if not center or not text:
+            continue
+        if center[0] >= column_split:
+            continue
+        if upper <= center[1] <= lower:
+            return True
+    return False
+
+
+def _candidate_row_has_label(candidate_y, ocr_data, column_split, avg_line_height):
+    for item in ocr_data or []:
+        center = item.get("center")
+        text = item.get("text")
+        if not center or not text:
+            continue
+        if center[0] >= column_split:
+            continue
+        if abs(center[1] - candidate_y) <= avg_line_height * 1.15:
+            return True
+    return False
 
 
 def expand_multiline_field(
@@ -270,6 +284,9 @@ def expand_multiline_field(
     max_group_size=20,
     max_depth=4,
     assigned_lines=None,
+    ocr_data=None,
+    column_split=300,
+    avg_line_height=18.0,
 ):
     grouped = [best_line]
     grouped_ids = {id(best_line)}
@@ -300,12 +317,21 @@ def expand_multiline_field(
             y_gap = candidate_y - current_y
             y_close = 0 < y_gap <= y_threshold
             length_similar = abs(line_length(ln) - line_length(best_line)) <= max(line_length(best_line) * 0.45, 80)
+            blocked_by_label = _intervening_label_exists(
+                current_y,
+                candidate_y,
+                ocr_data,
+                column_split,
+                avg_line_height,
+            ) or _candidate_row_has_label(candidate_y, ocr_data, column_split, avg_line_height)
 
-            if x_aligned and y_close and length_similar:
+            if x_aligned and y_close and length_similar and not blocked_by_label:
                 logger.info("[mapping] multiline add line=%s from=%s", ln, current)
                 grouped.append(ln)
                 grouped_ids.add(line_id)
                 queue.append((ln, depth + 1))
+            elif blocked_by_label:
+                logger.info("[mapping] multiline stop intervening_label current=%s candidate=%s", current, ln)
 
                 if len(grouped) >= max_group_size:
                     logger.info(
@@ -478,8 +504,11 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_spli
             field_lines,
             y_threshold=metrics["multiline_y_gap"],
             x_tolerance=metrics["indent_tolerance"],
-            max_group_size=6 if _is_multiline_label(label) else 1,
+            max_group_size=8,
             assigned_lines=assigned_lines,
+            ocr_data=labels,
+            column_split=column_split,
+            avg_line_height=metrics["avg_line_height"],
         )
         logger.info(
             "[mapping] label selected label=%r best_line=%s grouped=%s score=%.4f class=%s reasons=%s",
@@ -554,7 +583,7 @@ def _draw_text(img, text, point, color):
     )
 
 
-def draw_mapping(image_path, mappings, output_path, ocr_data=None, candidate_lines=None):
+def draw_mapping(image_path, mappings, output_path, ocr_data=None, candidate_lines=None, semantic_regions=None):
     img = cv2.imread(image_path)
     if img is None:
         raise RuntimeError(f"Failed to read image: {image_path}")
@@ -571,6 +600,23 @@ def draw_mapping(image_path, mappings, output_path, ocr_data=None, candidate_lin
         x1, y1 = line["start"]
         x2, y2 = line["end"]
         cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), (160, 160, 160), 1)
+
+    for region in semantic_regions or []:
+        x = int(region["x"])
+        y = int(region["y"])
+        w = int(region["width"])
+        h = int(region["height"])
+        region_type = region.get("type", "region")
+        confidence = float(region.get("confidence", 0.0))
+        color = (180, 180, 180)
+        if region_type in {"non_text_sparse_region", "non_text_candidate"}:
+            color = (0, 120, 255)
+        elif region_type == "multiline_text_region":
+            color = (180, 0, 180)
+        elif region_type == "standard_input":
+            color = (80, 180, 80)
+        cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
+        _draw_text(img, f"{region_type} {confidence:.2f}", (x, max(12, y - 6)), color)
 
     for mapping in mappings:
         label_x, label_y = mapping["label_pos"]

@@ -114,8 +114,15 @@ def resolve_uploaded_input(input_file: Path, output_dir: Path) -> Path:
 
 
 def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
-    from src.detect_fields import detect_lines, draw_lines, filter_field_lines
+    from src.detect_fields import (
+        detect_additional_field_candidates,
+        detect_lines,
+        detect_semantic_regions,
+        draw_lines,
+        filter_field_lines,
+    )
     from src.mapping import draw_mapping, map_labels_to_fields
+    from src.layout_reasoning import infer_layout_structure
     from src.ocr import extract_text
     from src.pdf_generator import create_pdf_with_fields
     from src.utils import get_center
@@ -157,9 +164,38 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     lines = detect_lines(image_path_str)
     _stage(f"line detection end count={len(lines)}")
 
+    _stage("additional field candidate detection start")
+    additional_lines = detect_additional_field_candidates(image_path_str)
+    candidate_lines = lines + additional_lines
+    _stage(
+        f"additional field candidate detection end count={len(additional_lines)} total={len(candidate_lines)}"
+    )
+
+    _stage("semantic region classification start")
+    semantic_regions = detect_semantic_regions(image_path_str, result, candidate_lines)
+    excluded_regions = [
+        region
+        for region in semantic_regions
+        if region.get("type") in {"non_text_sparse_region", "non_text_candidate"}
+    ]
+    _stage(
+        f"semantic region classification end regions={len(semantic_regions)} excluded={len(excluded_regions)}"
+    )
+
     _stage("field line filtering start")
-    filtered_lines = filter_field_lines(lines, result)
+    filtered_lines = filter_field_lines(candidate_lines, result, excluded_regions=excluded_regions)
     _stage(f"field line filtering end count={len(filtered_lines)}")
+
+    _stage("layout structure inference start")
+    layout_structure = infer_layout_structure(result, filtered_lines, semantic_regions)
+    _stage(
+        "layout structure inference end rows=%s clusters=%s regions=%s"
+        % (
+            len(layout_structure.get("text_rows", [])),
+            len(layout_structure.get("field_clusters", [])),
+            len(semantic_regions),
+        )
+    )
 
     lines_output_path = output_dir / "lines_detected.png"
     _stage(f"lines image save start: {lines_output_path}")
@@ -175,6 +211,9 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     mappings_path = output_dir / "mappings.json"
     _write_json(mappings_path, mappings, "mappings.json")
 
+    layout_structure_path = output_dir / "layout_structure.json"
+    _write_json(layout_structure_path, layout_structure, "layout_structure.json")
+
     diagnostics_path = output_dir / "mapping_diagnostics.json"
     diagnostics = {
         "labels_processed": len(result),
@@ -185,12 +224,21 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
             if item.get("text") not in {mapping.get("label") for mapping in mappings or []}
         ],
         "mappings": mappings or [],
+        "semantic_regions": semantic_regions,
+        "layout_structure": layout_structure,
     }
     _write_json(diagnostics_path, diagnostics, "mapping_diagnostics.json")
 
     mapping_image_path = output_dir / "mapping.png"
     _stage(f"mapping preview save start: {mapping_image_path}")
-    draw_mapping(image_path_str, mappings, str(mapping_image_path), ocr_data=result, candidate_lines=filtered_lines)
+    draw_mapping(
+        image_path_str,
+        mappings,
+        str(mapping_image_path),
+        ocr_data=result,
+        candidate_lines=filtered_lines,
+        semantic_regions=semantic_regions,
+    )
     if not mapping_image_path.exists() or mapping_image_path.stat().st_size <= 0:
         raise RuntimeError(f"mapping preview save failed or produced empty file: {mapping_image_path}")
     _stage(f"mapping preview save end: {mapping_image_path} size={mapping_image_path.stat().st_size}")
@@ -210,10 +258,13 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         "result_path": result_path,
         "lines_output_path": lines_output_path,
         "mappings_path": mappings_path,
+        "layout_structure_path": layout_structure_path,
         "diagnostics_path": diagnostics_path,
         "mapping_image_path": mapping_image_path,
         "pdf_output_path": pdf_output_path,
         "lines_count": len(lines),
+        "additional_lines_count": len(additional_lines),
+        "semantic_regions": semantic_regions,
         "filtered_lines_count": len(filtered_lines),
         "mappings": mappings,
     }
