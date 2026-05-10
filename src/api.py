@@ -39,28 +39,23 @@ def _parse_origins(value: str | None) -> list[str]:
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 
-DEFAULT_LOCAL_CORS_ORIGIN_REGEX = r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$"
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com",
+]
 
 app = FastAPI(title="Form Parser API", version="1.0.0")
 
-cors_origins = _parse_origins(os.getenv("CORS_ORIGINS"))
+cors_origins = list(dict.fromkeys(DEFAULT_CORS_ORIGINS + _parse_origins(os.getenv("CORS_ORIGINS"))))
 
-if cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=DEFAULT_LOCAL_CORS_ORIGIN_REGEX,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
