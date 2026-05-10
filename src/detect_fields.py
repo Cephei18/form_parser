@@ -126,6 +126,152 @@ def _avg_ocr_height(ocr_data, default: float = 18.0):
     return float(np.median(heights))
 
 
+def _avg_ocr_width(ocr_data, default: float = 72.0):
+    widths = []
+    for item in ocr_data:
+        bounds = _ocr_bounds(item)
+        if bounds is None:
+            continue
+        x1, _, x2, _ = bounds
+        if x2 > x1:
+            widths.append(x2 - x1)
+    if not widths:
+        return default
+    return float(np.median(widths))
+
+
+def _count_ocr_inside_region(region, ocr_data, padding: float = 4.0):
+    count = 0
+    for item in ocr_data:
+        bounds = _ocr_bounds(item)
+        if bounds is None:
+            continue
+        x1, y1, x2, y2 = bounds
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        if (
+            region["x"] - padding <= cx <= region["x"] + region["width"] + padding
+            and region["y"] - padding <= cy <= region["y"] + region["height"] + padding
+        ):
+            count += 1
+    return count
+
+
+def _count_lines_inside_region(region, lines):
+    count = 0
+    for line in lines:
+        cx, cy = _line_center(line)
+        if (
+            region["x"] <= cx <= region["x"] + region["width"]
+            and region["y"] <= cy <= region["y"] + region["height"]
+        ):
+            count += 1
+    return count
+
+
+def _region_ink_density(binary, region):
+    x, y, w, h = region["x"], region["y"], region["width"], region["height"]
+    roi = binary[y:y + h, x:x + w]
+    if roi.size == 0:
+        return 0.0
+    return cv2.countNonZero(roi) / float(roi.size)
+
+
+def _region_classification(region, ocr_count, internal_line_count, ink_density, rectangularity, aspect_ratio, avg_text_height, avg_text_width, page_width, page_height):
+    region_area = float(region["width"] * region["height"])
+    page_area = max(page_width * page_height, 1.0)
+    area_ratio = region_area / page_area
+    reasons = [
+        f"aspect={aspect_ratio:.2f}",
+        f"area_ratio={area_ratio:.4f}",
+        f"ink_density={ink_density:.4f}",
+        f"ocr_count={ocr_count}",
+        f"internal_lines={internal_line_count}",
+        f"rectangularity={rectangularity:.2f}",
+    ]
+
+    if rectangularity < 0.18:
+        return None, 0.0, reasons
+
+    is_checkbox_region = (
+        0.75 <= aspect_ratio <= 1.35
+        and region["width"] <= max(avg_text_height * 3.4, page_width * 0.07)
+        and region["height"] <= max(avg_text_height * 3.4, page_height * 0.07)
+        and ink_density < 0.55
+        and ocr_count <= 1
+    )
+    if is_checkbox_region:
+        reasons.append("square_sparse_enclosed_region")
+        return "checkbox_region", 0.9, reasons
+
+    is_table_like_region = (
+        internal_line_count >= 3
+        or (internal_line_count >= 2 and ocr_count >= 3 and aspect_ratio >= 1.2)
+        or (area_ratio >= 0.01 and internal_line_count >= 2 and ink_density >= 0.08)
+    )
+    if is_table_like_region:
+        reasons.append("repeated_row_alignment")
+        return "table_like_region", 0.84, reasons
+
+    is_multiline_region = (
+        aspect_ratio >= 1.8
+        and region["height"] >= avg_text_height * 2.0
+        and ocr_count >= 2
+        and ink_density >= 0.02
+    )
+    if is_multiline_region:
+        reasons.append("aligned_repeated_field_lines")
+        return "multiline_text_region", 0.78, reasons
+
+    is_signature_area = (
+        aspect_ratio >= 2.0
+        and region["width"] >= avg_text_width * 2.8
+        and region["height"] >= avg_text_height * 1.6
+        and ocr_count <= 2
+        and internal_line_count <= 1
+        and ink_density < 0.22
+    )
+    if is_signature_area:
+        reasons.append("wide_sparse_enclosed_region")
+        return "signature_area", 0.81, reasons
+
+    is_photo_region = (
+        0.7 <= aspect_ratio <= 1.5
+        and area_ratio >= 0.01
+        and region["width"] >= avg_text_height * 4.0
+        and region["height"] >= avg_text_height * 4.0
+        and ocr_count <= 2
+        and internal_line_count == 0
+        and ink_density < 0.18
+    )
+    if is_photo_region:
+        reasons.append("large_sparse_enclosure")
+        return "photo_region", 0.86, reasons
+
+    is_large_sparse = (
+        area_ratio >= 0.012
+        and region["height"] >= avg_text_height * 3.5
+        and ocr_count <= 3
+        and internal_line_count <= 2
+        and ink_density < 0.18
+    )
+    if is_large_sparse:
+        reasons.append("large_enclosed_sparse_region")
+        return "non_text_sparse_region", 0.86, reasons
+
+    is_tall_low_text = (
+        region["height"] > avg_text_height * 3.0
+        and region["width"] >= avg_text_width * 1.2
+        and ocr_count <= 1
+    )
+    if is_tall_low_text:
+        reasons.append("tall_low_text_enclosed_region")
+        return "non_text_candidate", 0.68, reasons
+
+    reasons.append("standard_field_geometry")
+    return "standard_input", 0.58, reasons
+
+
 def detect_semantic_regions(image_path: str, ocr_data, lines):
     """Classify enclosed regions using structural cues, not label text."""
     img = cv2.imread(image_path)
@@ -145,13 +291,14 @@ def detect_semantic_regions(image_path: str, ocr_data, lines):
     image_height, image_width = gray.shape[:2]
     page_area = float(image_height * image_width)
     avg_text_height = _avg_ocr_height(ocr_data)
+    avg_text_width = _avg_ocr_width(ocr_data)
     regions = []
 
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w < max(60, image_width * 0.04) or h < max(18, avg_text_height * 1.1):
+        if w < max(44, image_width * 0.025) or h < max(14, avg_text_height * 0.85):
             continue
-        if w > image_width * 0.98 or h > image_height * 0.85:
+        if w > image_width * 0.985 or h > image_height * 0.9:
             continue
 
         area = cv2.contourArea(contour)
@@ -162,53 +309,25 @@ def detect_semantic_regions(image_path: str, ocr_data, lines):
         rectangularity = area / rect_area
         aspect_ratio = w / float(max(h, 1))
         page_area_ratio = rect_area / page_area
-        ink_density = _image_density(binary, x, y, w, h)
+        ink_density = _region_ink_density(binary, {"x": x, "y": y, "width": w, "height": h})
         ocr_count = _count_ocr_inside_region({"x": x, "y": y, "width": w, "height": h}, ocr_data)
         internal_line_count = _count_lines_inside_region({"x": x, "y": y, "width": w, "height": h}, lines)
 
-        reasons = [
-            f"aspect={aspect_ratio:.2f}",
-            f"area_ratio={page_area_ratio:.4f}",
-            f"ink_density={ink_density:.4f}",
-            f"ocr_count={ocr_count}",
-            f"internal_lines={internal_line_count}",
-            f"rectangularity={rectangularity:.2f}",
-        ]
+        region_type, confidence, reasons = _region_classification(
+            {"x": x, "y": y, "width": w, "height": h},
+            ocr_count,
+            internal_line_count,
+            ink_density,
+            rectangularity,
+            aspect_ratio,
+            avg_text_height,
+            avg_text_width,
+            image_width,
+            image_height,
+        )
 
-        if rectangularity < 0.18:
+        if region_type is None:
             continue
-
-        region_type = "standard_input"
-        confidence = 0.55
-
-        is_large_sparse = (
-            page_area_ratio >= 0.012
-            and h >= avg_text_height * 4.0
-            and ocr_count <= 3
-            and internal_line_count <= 2
-            and ink_density < 0.18
-        )
-        is_multiline_region = (
-            aspect_ratio >= 2.4
-            and h >= avg_text_height * 2.2
-            and internal_line_count >= 2
-            and ocr_count <= max(2, internal_line_count)
-        )
-
-        if is_large_sparse:
-            region_type = "non_text_sparse_region"
-            confidence = 0.86
-            reasons.append("large_enclosed_sparse_region")
-        elif is_multiline_region:
-            region_type = "multiline_text_region"
-            confidence = 0.74
-            reasons.append("aligned_repeated_field_lines")
-        elif h > avg_text_height * 3.5 and ocr_count <= 1:
-            region_type = "non_text_candidate"
-            confidence = 0.66
-            reasons.append("tall_low_text_enclosed_region")
-        else:
-            reasons.append("standard_field_geometry")
 
         regions.append(
             {
@@ -219,6 +338,14 @@ def detect_semantic_regions(image_path: str, ocr_data, lines):
                 "type": region_type,
                 "confidence": round(confidence, 4),
                 "reasons": reasons,
+                "relationship_features": {
+                    "aspect_ratio": round(aspect_ratio, 4),
+                    "page_area_ratio": round(page_area_ratio, 4),
+                    "ink_density": round(ink_density, 4),
+                    "ocr_count": int(ocr_count),
+                    "internal_line_count": int(internal_line_count),
+                    "rectangularity": round(rectangularity, 4),
+                },
             }
         )
 

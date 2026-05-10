@@ -121,8 +121,10 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         draw_lines,
         filter_field_lines,
     )
+    from src.global_layout import infer_page_structure
     from src.mapping import draw_mapping, map_labels_to_fields
-    from src.layout_reasoning import infer_layout_structure
+    from src.debug_visualize import create_debug_overlay
+    from src.evaluation import evaluate_mapping_file
     from src.ocr import extract_text
     from src.pdf_generator import create_pdf_with_fields
     from src.utils import get_center
@@ -176,7 +178,14 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     excluded_regions = [
         region
         for region in semantic_regions
-        if region.get("type") in {"non_text_sparse_region", "non_text_candidate"}
+        if region.get("type") in {
+            "non_text_sparse_region",
+            "non_text_candidate",
+            "photo_region",
+            "signature_area",
+            "table_like_region",
+            "checkbox_region",
+        }
     ]
     _stage(
         f"semantic region classification end regions={len(semantic_regions)} excluded={len(excluded_regions)}"
@@ -187,7 +196,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     _stage(f"field line filtering end count={len(filtered_lines)}")
 
     _stage("layout structure inference start")
-    layout_structure = infer_layout_structure(result, filtered_lines, semantic_regions)
+    layout_structure = infer_page_structure(result, filtered_lines, semantic_regions)
     _stage(
         "layout structure inference end rows=%s clusters=%s regions=%s"
         % (
@@ -205,7 +214,12 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     _stage(f"lines image save end: {lines_output_path} size={lines_output_path.stat().st_size}")
 
     _stage("mapping start")
-    mappings = map_labels_to_fields(result, filtered_lines)
+    mappings = map_labels_to_fields(
+        result,
+        filtered_lines,
+        layout_structure=layout_structure,
+        semantic_regions=semantic_regions,
+    )
     _stage(f"mapping end count={len(mappings or [])}")
 
     mappings_path = output_dir / "mappings.json"
@@ -229,6 +243,15 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     }
     _write_json(diagnostics_path, diagnostics, "mapping_diagnostics.json")
 
+    benchmark_summary_path = output_dir / "benchmark_summary.json"
+    _stage(f"benchmark summary save start: {benchmark_summary_path}")
+    benchmark_summary = evaluate_mapping_file(
+        mappings_path,
+        result_path,
+        baseline_path=output_dir / "mappings_rule.json",
+    )
+    _write_json(benchmark_summary_path, benchmark_summary, "benchmark_summary.json")
+
     mapping_image_path = output_dir / "mapping.png"
     _stage(f"mapping preview save start: {mapping_image_path}")
     draw_mapping(
@@ -238,10 +261,18 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         ocr_data=result,
         candidate_lines=filtered_lines,
         semantic_regions=semantic_regions,
+        layout_structure=layout_structure,
     )
     if not mapping_image_path.exists() or mapping_image_path.stat().st_size <= 0:
         raise RuntimeError(f"mapping preview save failed or produced empty file: {mapping_image_path}")
     _stage(f"mapping preview save end: {mapping_image_path} size={mapping_image_path.stat().st_size}")
+
+    debug_reasoning_path = output_dir / "debug_reasoning.png"
+    _stage(f"debug overlay save start: {debug_reasoning_path}")
+    create_debug_overlay(Path(__file__).resolve().parents[1], debug_reasoning_path)
+    if not debug_reasoning_path.exists() or debug_reasoning_path.stat().st_size <= 0:
+        raise RuntimeError(f"debug overlay save failed or produced empty file: {debug_reasoning_path}")
+    _stage(f"debug overlay save end: {debug_reasoning_path} size={debug_reasoning_path.stat().st_size}")
 
     pdf_output_path = output_dir / "output.pdf"
     _stage(f"PDF generation start: {pdf_output_path}")
