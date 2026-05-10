@@ -138,7 +138,14 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
             text = item["text"]
             bbox = item["bbox"]
             center = get_center(bbox)
-            result.append({"text": text, "bbox": bbox, "center": center})
+            result.append(
+                {
+                    "text": text,
+                    "bbox": bbox,
+                    "center": center,
+                    "confidence": item.get("confidence"),
+                }
+            )
         except Exception:
             logger.exception("[pipeline] skipping malformed OCR item index=%s", index)
     _stage(f"OCR normalization end usable={len(result)}")
@@ -168,9 +175,22 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     mappings_path = output_dir / "mappings.json"
     _write_json(mappings_path, mappings, "mappings.json")
 
+    diagnostics_path = output_dir / "mapping_diagnostics.json"
+    diagnostics = {
+        "labels_processed": len(result),
+        "mappings_selected": len(mappings or []),
+        "unresolved_labels": [
+            item.get("text")
+            for item in result
+            if item.get("text") not in {mapping.get("label") for mapping in mappings or []}
+        ],
+        "mappings": mappings or [],
+    }
+    _write_json(diagnostics_path, diagnostics, "mapping_diagnostics.json")
+
     mapping_image_path = output_dir / "mapping.png"
     _stage(f"mapping preview save start: {mapping_image_path}")
-    draw_mapping(image_path_str, mappings, str(mapping_image_path))
+    draw_mapping(image_path_str, mappings, str(mapping_image_path), ocr_data=result, candidate_lines=filtered_lines)
     if not mapping_image_path.exists() or mapping_image_path.stat().st_size <= 0:
         raise RuntimeError(f"mapping preview save failed or produced empty file: {mapping_image_path}")
     _stage(f"mapping preview save end: {mapping_image_path} size={mapping_image_path.stat().st_size}")
@@ -190,6 +210,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         "result_path": result_path,
         "lines_output_path": lines_output_path,
         "mappings_path": mappings_path,
+        "diagnostics_path": diagnostics_path,
         "mapping_image_path": mapping_image_path,
         "pdf_output_path": pdf_output_path,
         "lines_count": len(lines),

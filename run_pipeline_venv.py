@@ -1,6 +1,5 @@
 import shutil
 import os
-import sys
 from pathlib import Path
 import subprocess
 
@@ -15,7 +14,7 @@ if src_input.exists():
 else:
     print('Source file not found:', src_input)
 
-PY = sys.executable
+PY = r'd:\form_parser\venv\Scripts\python.exe'
 print('Running pipeline with', PY)
 ret = subprocess.run([PY, '-m', 'src.main'])
 print('returncode', ret.returncode)

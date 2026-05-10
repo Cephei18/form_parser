@@ -2,6 +2,7 @@ import math
 import logging
 
 import cv2
+import numpy as np
 
 logger = logging.getLogger("form_parser.mapping")
 if not logger.handlers:
@@ -22,6 +23,220 @@ def line_center(line):
     return ((x1 + x2) / 2, (y1 + y2) / 2)
 
 
+def line_length(line) -> float:
+    x1, y1 = line["start"]
+    x2, y2 = line["end"]
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+
+def line_bounds(line):
+    x1, y1 = line["start"]
+    x2, y2 = line["end"]
+    return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+
+def ocr_bounds(item):
+    bbox = item.get("bbox")
+    if not bbox:
+        return None
+    try:
+        xs = [float(point[0]) for point in bbox]
+        ys = [float(point[1]) for point in bbox]
+    except Exception:
+        return None
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def _safe_confidence(item) -> float:
+    confidence = item.get("confidence")
+    if isinstance(confidence, (int, float)):
+        return _clamp01(float(confidence))
+    return 0.75
+
+
+def _median(values, default: float) -> float:
+    clean = [float(v) for v in values if isinstance(v, (int, float)) and v > 0]
+    if not clean:
+        return default
+    return float(np.median(clean))
+
+
+def build_layout_metrics(ocr_data, field_lines):
+    line_heights = []
+    text_widths = []
+    for item in ocr_data:
+        bounds = ocr_bounds(item)
+        if bounds is None:
+            continue
+        x1, y1, x2, y2 = bounds
+        line_heights.append(y2 - y1)
+        text_widths.append(x2 - x1)
+
+    line_lengths = [line_length(line) for line in field_lines]
+    avg_line_height = _median(line_heights, 18.0)
+    avg_line_width = _median(line_lengths, 220.0)
+    ocr_density = len(ocr_data) / max(1.0, len(field_lines) or 1.0)
+
+    return {
+        "avg_line_height": avg_line_height,
+        "avg_line_width": avg_line_width,
+        "avg_text_width": _median(text_widths, 80.0),
+        "row_tolerance": max(28.0, avg_line_height * 2.2),
+        "relaxed_row_tolerance": max(42.0, avg_line_height * 3.4),
+        "distance_limit": max(420.0, avg_line_width * 3.2),
+        "multiline_y_gap": max(34.0, avg_line_height * 2.6),
+        "indent_tolerance": max(42.0, avg_line_height * 3.0),
+        "ocr_density": ocr_density,
+    }
+
+
+def _semantic_hint_score(label: str, line) -> tuple[float, list[str]]:
+    text = (label or "").lower()
+    source = line.get("field_type", "line")
+    score = 0.55
+    reasons = []
+
+    multiline_words = ("address", "street", "remarks", "description", "details")
+    short_words = ("age", "zip", "pin", "code", "no.", "id")
+    date_words = ("date", "dob", "birth")
+
+    if any(word in text for word in multiline_words):
+        score += 0.18
+        reasons.append("semantic_multiline_label")
+    if any(word in text for word in date_words):
+        score += 0.08
+        reasons.append("semantic_date_label")
+    if any(word in text for word in short_words) and line_length(line) < 260:
+        score += 0.12
+        reasons.append("semantic_short_field_size")
+    if source in {"box", "weak_line", "fallback_text_region"}:
+        score += 0.06
+        reasons.append(f"field_source_{source}")
+
+    return _clamp01(score), reasons
+
+
+def _row_overlap_score(label_item, line, metrics) -> tuple[float, list[str]]:
+    bounds = ocr_bounds(label_item)
+    _, line_y = line_center(line)
+    if bounds is None:
+        return 0.5, ["missing_label_bounds"]
+
+    _, y1, _, y2 = bounds
+    if y1 <= line_y <= y2 + metrics["avg_line_height"] * 0.8:
+        return 1.0, ["row_overlap"]
+
+    dy = min(abs(line_y - y1), abs(line_y - y2))
+    score = 1.0 - (dy / max(metrics["relaxed_row_tolerance"], 1.0))
+    return _clamp01(score), ["row_nearby" if score >= 0.45 else "row_separated"]
+
+
+def score_candidate(label_item, line, assigned_lines, metrics, table_regions):
+    label_center = label_item["center"]
+    candidate_center = line_center(line)
+    dx = candidate_center[0] - label_center[0]
+    dy = abs(candidate_center[1] - label_center[1])
+    reasons = []
+    rejection_reasons = []
+
+    if id(line) in assigned_lines:
+        rejection_reasons.append("already_assigned")
+    if dx <= 0:
+        rejection_reasons.append("not_right_of_label")
+    if any(line in region for region in table_regions):
+        rejection_reasons.append("inside_table_region")
+
+    horizontal_score = _clamp01(dx / max(metrics["avg_text_width"] * 1.5, 80.0))
+    if dx > metrics["distance_limit"]:
+        horizontal_score *= 0.55
+        reasons.append("far_horizontal_distance")
+    elif dx > 0:
+        reasons.append("right_of_label")
+
+    vertical_score = _clamp01(1.0 - (dy / max(metrics["relaxed_row_tolerance"], 1.0)))
+    if vertical_score >= 0.72:
+        reasons.append("strong_vertical_alignment")
+    elif vertical_score >= 0.38:
+        reasons.append("weak_vertical_alignment")
+    else:
+        rejection_reasons.append("poor_vertical_alignment")
+
+    row_score, row_reasons = _row_overlap_score(label_item, line, metrics)
+    reasons.extend(row_reasons)
+
+    width = line_length(line)
+    field_size_score = _clamp01(1.0 - abs(width - metrics["avg_line_width"]) / max(metrics["avg_line_width"] * 1.6, 1.0))
+    if field_size_score >= 0.6:
+        reasons.append("field_size_consistent")
+    else:
+        reasons.append("field_size_outlier")
+
+    semantic_score, semantic_reasons = _semantic_hint_score(label_item.get("text", ""), line)
+    reasons.extend(semantic_reasons)
+
+    ocr_score = _safe_confidence(label_item)
+    if ocr_score < 0.55:
+        reasons.append("low_ocr_confidence")
+
+    candidate_score = (
+        horizontal_score * 0.18
+        + vertical_score * 0.26
+        + row_score * 0.18
+        + field_size_score * 0.12
+        + semantic_score * 0.14
+        + ocr_score * 0.12
+    )
+
+    if rejection_reasons:
+        candidate_score *= 0.35
+
+    score_breakdown = {
+        "horizontal_distance": round(horizontal_score, 4),
+        "vertical_alignment": round(vertical_score, 4),
+        "row_overlap": round(row_score, 4),
+        "field_size_consistency": round(field_size_score, 4),
+        "semantic_hints": round(semantic_score, 4),
+        "ocr_confidence": round(ocr_score, 4),
+    }
+
+    return {
+        "line": line,
+        "candidate_score": round(candidate_score, 4),
+        "confidence": round(_clamp01(candidate_score), 4),
+        "reasons": reasons,
+        "rejection_reasons": rejection_reasons,
+        "score_breakdown": score_breakdown,
+        "distance": round(distance(label_center, candidate_center), 2),
+        "dx": round(dx, 2),
+        "dy": round(dy, 2),
+    }
+
+
+def classify_confidence(best, runner_up=None) -> tuple[str, list[str]]:
+    if best is None:
+        return "unresolved", ["no_candidate"]
+
+    score = best["candidate_score"]
+    margin = score - (runner_up["candidate_score"] if runner_up else 0.0)
+    notes = []
+
+    if runner_up and margin < 0.08:
+        notes.append("close_second_candidate")
+        return "ambiguous", notes
+    if best["rejection_reasons"]:
+        notes.append("selected_candidate_has_rejections")
+        return "weak_match", notes
+    if score >= 0.72 and margin >= 0.12:
+        return "strong_match", notes
+    if score >= 0.48:
+        return "weak_match", notes
+    return "unresolved", ["candidate_score_below_threshold"]
+
+
 def infer_column_split(ocr_data, fallback_split: int = 300):
     xs = sorted(item["center"][0] for item in ocr_data if "center" in item)
     if len(xs) < 2:
@@ -35,34 +250,62 @@ def infer_column_split(ocr_data, fallback_split: int = 300):
             max_gap = gap
             split = (left + right) / 2
 
+    if split < fallback_split * 0.75:
+        return fallback_split
+
     return split
 
 
-def expand_multiline_field(best_line, lines, y_threshold=60, x_tolerance=80, max_group_size=20):
+def _is_multiline_label(label: str) -> bool:
+    text = (label or "").lower()
+    multiline_words = ("address", "street", "remarks", "description", "details")
+    return any(word in text for word in multiline_words)
+
+
+def expand_multiline_field(
+    best_line,
+    lines,
+    y_threshold=60,
+    x_tolerance=80,
+    max_group_size=20,
+    max_depth=4,
+    assigned_lines=None,
+):
     grouped = [best_line]
     grouped_ids = {id(best_line)}
-    queue = [best_line]
+    queue = [(best_line, 0)]
+    assigned_lines = assigned_lines or set()
 
     # Keep expansion local so one noisy label cannot absorb the whole page.
     while queue and len(grouped) < max_group_size:
-        current = queue.pop(0)
+        current, depth = queue.pop(0)
+        if depth >= max_depth:
+            logger.info("[mapping] multiline stop max_depth=%s current=%s", max_depth, current)
+            continue
         gx1, gy1 = current["start"]
+        _, current_y = line_center(current)
 
-        for ln in lines:
+        for ln in sorted(lines, key=lambda item: (line_center(item)[1], line_center(item)[0])):
             line_id = id(ln)
             if line_id in grouped_ids:
                 logger.info("[mapping] multiline skip visited line=%s", ln)
                 continue
+            if line_id in assigned_lines:
+                logger.info("[mapping] multiline skip owned line=%s", ln)
+                continue
 
             lx1, ly1 = ln["start"]
+            _, candidate_y = line_center(ln)
             x_aligned = abs(lx1 - gx1) < x_tolerance
-            y_close = abs(ly1 - gy1) < y_threshold
+            y_gap = candidate_y - current_y
+            y_close = 0 < y_gap <= y_threshold
+            length_similar = abs(line_length(ln) - line_length(best_line)) <= max(line_length(best_line) * 0.45, 80)
 
-            if x_aligned and y_close:
+            if x_aligned and y_close and length_similar:
                 logger.info("[mapping] multiline add line=%s from=%s", ln, current)
                 grouped.append(ln)
                 grouped_ids.add(line_id)
-                queue.append(ln)
+                queue.append((ln, depth + 1))
 
                 if len(grouped) >= max_group_size:
                     logger.info(
@@ -116,151 +359,66 @@ def detect_table_regions(lines, y_threshold=15, min_lines=5):
     return regions
 
 
-def _best_field_match(
-    label_center,
-    field_lines,
-    assigned_lines,
-    row_tolerance: int,
-    distance_threshold: float,
-):
-    closest_line = None
-    min_dist = float("inf")
-    candidate_count = 0
-    rejected_assigned = 0
-    rejected_alignment = 0
-
-    for line in field_lines:
-        candidate_center = line_center(line)
-
-        if id(line) in assigned_lines:
-            rejected_assigned += 1
-            continue
-
-        if abs(candidate_center[1] - label_center[1]) >= row_tolerance:
-            rejected_alignment += 1
-            continue
-
-        if candidate_center[0] <= label_center[0]:
-            rejected_alignment += 1
-            continue
-
-        candidate_count += 1
-        dist = distance(label_center, candidate_center)
-
-        if dist < min_dist:
-            min_dist = dist
-            closest_line = line
-
-    accepted = closest_line is not None and min_dist <= distance_threshold
-    return {
-        "closest_line": closest_line,
-        "min_dist": min_dist,
-        "candidate_count": candidate_count,
-        "rejected_assigned": rejected_assigned,
-        "rejected_alignment": rejected_alignment,
-        "accepted": accepted,
-    }
-
-
-def _match_label_with_passes(
-    label,
-    label_center,
+def _select_weighted_candidate(
+    label_item,
     field_lines,
     assigned_lines,
     table_regions,
-    strict_row_tolerance: int,
-    strict_distance_threshold: float,
-    relaxed_row_tolerance: int,
-    relaxed_distance_threshold: float,
+    metrics,
 ):
-    def is_in_table(line):
-        for region in table_regions:
-            if line in region:
-                return True
-        return False
+    label = label_item.get("text", "")
+    label_center = label_item["center"]
+    y_min = label_center[1] - metrics["relaxed_row_tolerance"]
+    y_max = label_center[1] + metrics["relaxed_row_tolerance"]
+    row_lines = lines_in_row_window(field_lines, y_min, y_max)
 
-    passes = [
-        ("strict", strict_row_tolerance, strict_distance_threshold),
-        ("fallback", relaxed_row_tolerance, relaxed_distance_threshold),
+    logger.info(
+        "[mapping] label=%r row_window_candidates=%s row_tolerance=%.1f",
+        label,
+        len(row_lines),
+        metrics["relaxed_row_tolerance"],
+    )
+
+    candidates = [
+        score_candidate(label_item, line, assigned_lines, metrics, table_regions)
+        for line in field_lines
     ]
+    candidates.sort(key=lambda item: item["candidate_score"], reverse=True)
 
-    for pass_name, row_tolerance, distance_threshold in passes:
-        y_min = label_center[1] - row_tolerance
-        y_max = label_center[1] + row_tolerance
-        row_lines = lines_in_row_window(field_lines, y_min, y_max)
+    best = candidates[0] if candidates else None
+    runner_up = candidates[1] if len(candidates) > 1 else None
+    confidence_class, ambiguity_notes = classify_confidence(best, runner_up)
 
+    for idx, candidate in enumerate(candidates[:5], start=1):
         logger.info(
-            "[mapping] label pass=%s text=%r row_tolerance=%s row_window_candidates=%s distance_threshold=%s",
-            pass_name,
+            "[mapping] candidate label=%r rank=%s score=%.4f confidence=%.4f dx=%.1f dy=%.1f rejects=%s reasons=%s breakdown=%s",
             label,
-            row_tolerance,
-            len(row_lines),
-            distance_threshold,
+            idx,
+            candidate["candidate_score"],
+            candidate["confidence"],
+            candidate["dx"],
+            candidate["dy"],
+            candidate["rejection_reasons"],
+            candidate["reasons"],
+            candidate["score_breakdown"],
         )
 
-        if is_table_row(row_lines):
-            logger.info(
-                "[mapping] label pass=%s reject reason=table_row text=%r candidates=%s threshold=%s",
-                pass_name,
-                label,
-                len(row_lines),
-                10,
-            )
-            continue
-
-        selection = _best_field_match(
-            label_center,
-            field_lines,
-            assigned_lines,
-            row_tolerance=row_tolerance,
-            distance_threshold=distance_threshold,
-        )
-
+    selected = best if confidence_class != "unresolved" else None
+    if selected is None:
         logger.info(
-            "[mapping] label pass=%s text=%r candidates=%s rejected_assigned=%s rejected_alignment=%s best_line=%s min_dist=%s accepted=%s",
-            pass_name,
+            "[mapping] label unresolved text=%r candidates=%s notes=%s",
             label,
-            selection["candidate_count"],
-            selection["rejected_assigned"],
-            selection["rejected_alignment"],
-            selection["closest_line"],
-            f"{selection['min_dist']:.2f}" if selection["closest_line"] is not None else "inf",
-            selection["accepted"],
+            len(candidates),
+            ambiguity_notes,
         )
 
-        if not selection["accepted"]:
-            if selection["closest_line"] is None:
-                logger.info("[mapping] label pass=%s reject reason=no_candidate text=%r", pass_name, label)
-            else:
-                logger.info(
-                    "[mapping] label pass=%s reject reason=distance text=%r best_line=%s min_dist=%.2f threshold=%.2f",
-                    pass_name,
-                    label,
-                    selection["closest_line"],
-                    selection["min_dist"],
-                    distance_threshold,
-                )
-            continue
-
-        best_line = selection["closest_line"]
-        if is_in_table(best_line):
-            logger.info(
-                "[mapping] label pass=%s reject reason=table_region text=%r best_line=%s",
-                pass_name,
-                label,
-                best_line,
-            )
-            continue
-
-        return {
-            "pass_name": pass_name,
-            "best_line": best_line,
-            "min_dist": selection["min_dist"],
-            "row_tolerance": row_tolerance,
-            "distance_threshold": distance_threshold,
-        }
-
-    return None
+    return {
+        "selected": selected,
+        "candidate_count": len(candidates),
+        "confidence_class": confidence_class,
+        "ambiguity_notes": ambiguity_notes,
+        "top_candidates": candidates[:5],
+    }
 
 
 def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_split: int = 300):
@@ -282,6 +440,8 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_spli
     # detect table-like regions among candidate field lines
     table_regions = detect_table_regions(field_lines)
     logger.info("[mapping] table_regions=%s", len(table_regions))
+    metrics = build_layout_metrics(ocr_data, field_lines)
+    logger.info("[mapping] dynamic_metrics=%s", metrics)
 
     for label_index, item in enumerate(labels, start=1):
         label = item["text"]
@@ -293,31 +453,42 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_spli
             label_center,
         )
 
-        match = _match_label_with_passes(
-            label,
-            label_center,
+        selection = _select_weighted_candidate(
+            item,
             field_lines,
             assigned_lines,
             table_regions,
-            strict_row_tolerance=row_tolerance,
-            strict_distance_threshold=650,
-            relaxed_row_tolerance=max(row_tolerance + 12, 48),
-            relaxed_distance_threshold=900,
+            metrics,
         )
 
+        match = selection["selected"]
         if match is None:
-            logger.info("[mapping] label final reject text=%r reason=no_match", label)
+            logger.info(
+                "[mapping] label final unresolved text=%r candidate_count=%s classification=%s notes=%s",
+                label,
+                selection["candidate_count"],
+                selection["confidence_class"],
+                selection["ambiguity_notes"],
+            )
             continue
 
         # expand into multiline group
-        grouped = expand_multiline_field(match["best_line"], field_lines)
+        grouped = expand_multiline_field(
+            match["line"],
+            field_lines,
+            y_threshold=metrics["multiline_y_gap"],
+            x_tolerance=metrics["indent_tolerance"],
+            max_group_size=6 if _is_multiline_label(label) else 1,
+            assigned_lines=assigned_lines,
+        )
         logger.info(
-            "[mapping] label selected pass=%s label=%r best_line=%s grouped=%s min_dist=%.2f",
-            match["pass_name"],
+            "[mapping] label selected label=%r best_line=%s grouped=%s score=%.4f class=%s reasons=%s",
             label,
-            match["best_line"],
+            match["line"],
             len(grouped),
-            match["min_dist"],
+            match["candidate_score"],
+            selection["confidence_class"],
+            match["reasons"],
         )
 
         # mark all grouped lines as assigned
@@ -335,14 +506,33 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_spli
                 "label": label,
                 "label_pos": label_center,
                 "field_lines": grouped,
-                "distance": match["min_dist"],
+                "field_type": grouped[0].get("field_type", "line") if grouped else "line",
+                "distance": match["distance"],
                 "column_split": column_split,
+                "candidate_score": match["candidate_score"],
+                "confidence": match["confidence"],
+                "confidence_class": selection["confidence_class"],
+                "reasons": match["reasons"],
+                "score_breakdown": match["score_breakdown"],
+                "candidate_count": selection["candidate_count"],
+                "ambiguity_notes": selection["ambiguity_notes"],
+                "rejected_candidates": [
+                    {
+                        "line": candidate["line"],
+                        "candidate_score": candidate["candidate_score"],
+                        "rejection_reasons": candidate["rejection_reasons"],
+                        "score_breakdown": candidate["score_breakdown"],
+                    }
+                    for candidate in selection["top_candidates"]
+                    if candidate["line"] is not match["line"]
+                ],
+                "multiline_group_size": len(grouped),
             }
         )
 
         logger.info(
-            "[mapping] label final accepted pass=%s label=%r mapping_count=%s assigned_total=%s",
-            match["pass_name"],
+            "[mapping] label final accepted class=%s label=%r mapping_count=%s assigned_total=%s",
+            selection["confidence_class"],
             label,
             len(mappings),
             len(assigned_lines),
@@ -351,13 +541,41 @@ def map_labels_to_fields(ocr_data, lines, row_tolerance: int = 36, fallback_spli
     return mappings
 
 
-def draw_mapping(image_path, mappings, output_path):
+def _draw_text(img, text, point, color):
+    cv2.putText(
+        img,
+        str(text)[:80],
+        (int(point[0]), int(point[1])),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        color,
+        1,
+        cv2.LINE_AA,
+    )
+
+
+def draw_mapping(image_path, mappings, output_path, ocr_data=None, candidate_lines=None):
     img = cv2.imread(image_path)
     if img is None:
         raise RuntimeError(f"Failed to read image: {image_path}")
 
+    for item in ocr_data or []:
+        bounds = ocr_bounds(item)
+        if bounds is None:
+            continue
+        x1, y1, x2, y2 = bounds
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 180, 0), 1)
+        _draw_text(img, item.get("text", ""), (x1, max(10, y1 - 4)), (120, 90, 0))
+
+    for line in candidate_lines or []:
+        x1, y1 = line["start"]
+        x2, y2 = line["end"]
+        cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), (160, 160, 160), 1)
+
     for mapping in mappings:
         label_x, label_y = mapping["label_pos"]
+        confidence_class = mapping.get("confidence_class", "unknown")
+        score = mapping.get("candidate_score", 0)
 
         for line in mapping.get("field_lines", []):
             x1, y1 = line["start"]
@@ -379,6 +597,26 @@ def draw_mapping(image_path, mappings, output_path):
                 (int(max(x1, x2)), int(max(y1, y2) + 12)),
                 (0, 200, 0),
                 2,
+            )
+            _draw_text(
+                img,
+                f"{confidence_class} {score:.2f}",
+                (min(x1, x2), min(y1, y2) - 12),
+                (0, 120, 0),
+            )
+
+        for rejected in mapping.get("rejected_candidates", []):
+            line = rejected.get("line")
+            if not line:
+                continue
+            x1, y1 = line["start"]
+            x2, y2 = line["end"]
+            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 140, 255), 1)
+            _draw_text(
+                img,
+                f"reject {rejected.get('candidate_score', 0):.2f}",
+                (min(x1, x2), max(y1, y2) + 14),
+                (0, 100, 180),
             )
 
         if mapping.get("field_type") == "checkbox":

@@ -41,7 +41,8 @@ def extract_text(image_path):
     for line in results[0]:
         bbox = line[0]
         text = line[1][0]
+        confidence = line[1][1] if len(line[1]) > 1 else None
 
-        extracted.append({"text": text, "bbox": bbox})
+        extracted.append({"text": text, "bbox": bbox, "confidence": confidence})
 
     return extracted

@@ -38,6 +38,9 @@ def _parse_origins(value: str | None) -> list[str]:
 
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
+
+DEFAULT_LOCAL_CORS_ORIGIN_REGEX = r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$"
+
 app = FastAPI(title="Form Parser API", version="1.0.0")
 
 cors_origins = _parse_origins(os.getenv("CORS_ORIGINS"))
@@ -46,6 +49,14 @@ if cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=DEFAULT_LOCAL_CORS_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -126,12 +137,26 @@ async def request_logging_middleware(request: Request, call_next):
     return response
 
 
-def _stats(output: dict) -> dict[str, int]:
+def _stats(output: dict) -> dict:
     mappings = output.get("mappings") or []
+    confidence_classes: dict[str, int] = {}
+    scores = []
+    multiline_count = 0
+    for mapping in mappings:
+        confidence_class = mapping.get("confidence_class", "unknown")
+        confidence_classes[confidence_class] = confidence_classes.get(confidence_class, 0) + 1
+        if isinstance(mapping.get("candidate_score"), (int, float)):
+            scores.append(float(mapping["candidate_score"]))
+        if int(mapping.get("multiline_group_size", 1)) > 1:
+            multiline_count += 1
+
     return {
         "mapping_count": len(mappings),
         "line_count": int(output.get("lines_count", 0)),
         "field_candidate_count": int(output.get("filtered_lines_count", 0)),
+        "multiline_count": multiline_count,
+        "average_candidate_score": round(sum(scores) / len(scores), 4) if scores else 0,
+        "confidence_classes": confidence_classes,
     }
 
 
