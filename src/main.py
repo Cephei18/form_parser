@@ -115,6 +115,7 @@ def resolve_uploaded_input(input_file: Path, output_dir: Path) -> Path:
 
 def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     from src.detect_fields import (
+        deduplicate_detected_lines,
         detect_additional_field_candidates,
         detect_lines,
         detect_semantic_regions,
@@ -168,7 +169,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
 
     _stage("additional field candidate detection start")
     additional_lines = detect_additional_field_candidates(image_path_str)
-    candidate_lines = lines + additional_lines
+    candidate_lines = deduplicate_detected_lines(lines + additional_lines)
     _stage(
         f"additional field candidate detection end count={len(additional_lines)} total={len(candidate_lines)}"
     )
@@ -229,9 +230,19 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     _write_json(layout_structure_path, layout_structure, "layout_structure.json")
 
     diagnostics_path = output_dir / "mapping_diagnostics.json"
+    ocr_source_items = sum(int(item.get("source_item_count", 1) or 1) for item in result)
+    merged_ocr_items = sum(1 for item in result if int(item.get("source_item_count", 1) or 1) > 1)
     diagnostics = {
         "labels_processed": len(result),
         "mappings_selected": len(mappings or []),
+        "ocr_summary": {
+            "item_count": len(result),
+            "merged_item_count": merged_ocr_items,
+            "source_items_merged": ocr_source_items,
+        },
+        "field_candidate_count": len(filtered_lines),
+        "semantic_region_count": len(semantic_regions),
+        "excluded_region_count": len(excluded_regions),
         "unresolved_labels": [
             item.get("text")
             for item in result

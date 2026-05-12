@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import shutil
@@ -10,6 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.main import resolve_uploaded_input, run_pipeline
+from src.ocr import OCRRuntimeError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_ROOT = Path(os.getenv("FORM_PARSER_OUTPUT_DIR", PROJECT_ROOT / "output"))
@@ -42,6 +44,10 @@ def _parse_origins(value: str | None) -> list[str]:
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
     "http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com",
 ]
 
@@ -74,7 +80,12 @@ app.mount("/files", StaticFiles(directory=str(OUTPUT_ROOT)), name="files")
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    error_code = "http_error"
     message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    if isinstance(exc.detail, dict):
+        error_code = str(exc.detail.get("code") or error_code)
+        message = str(exc.detail.get("message") or message)
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -82,7 +93,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             "message": message,
             "detail": message,
             "error": {
-                "code": "http_error",
+                "code": error_code,
                 "message": message,
             },
         },
@@ -189,6 +200,15 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
         output = run_pipeline(source_image, run_output_dir)
     except HTTPException:
         raise
+    except OCRRuntimeError as exc:
+        logger.exception("[api] OCR failed run_id=%s: %s", run_id, exc)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "ocr_failed",
+                "message": "OCR processing failed. Verify the OCR model is available and the uploaded document can be read.",
+            },
+        ) from exc
     except Exception as exc:
         logger.exception("[api] processing failed run_id=%s: %s", run_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -198,6 +218,7 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
             upload_path.unlink(missing_ok=True)
         except Exception:
             logger.warning("[api] failed to remove temp upload: %s", upload_path)
+        gc.collect()
 
     pdf_rel = output["pdf_output_path"].relative_to(OUTPUT_ROOT).as_posix()
     map_rel = output["mapping_image_path"].relative_to(OUTPUT_ROOT).as_posix()

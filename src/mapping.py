@@ -1,5 +1,6 @@
 import math
 import logging
+import re
 
 import cv2
 import numpy as np
@@ -58,6 +59,72 @@ def _safe_confidence(item) -> float:
     if isinstance(confidence, (int, float)):
         return _clamp01(float(confidence))
     return 0.75
+
+
+FIELD_LABEL_KEYWORDS = {
+    "address",
+    "advertisement",
+    "age",
+    "applied",
+    "birth",
+    "candidate",
+    "category",
+    "code",
+    "contact",
+    "date",
+    "email",
+    "father",
+    "gender",
+    "husband",
+    "letter",
+    "mail",
+    "mobile",
+    "name",
+    "nationality",
+    "number",
+    "obc",
+    "passport",
+    "phone",
+    "pin",
+    "post",
+    "pwd",
+    "sc",
+    "sex",
+    "signature",
+    "st",
+    "year",
+}
+
+
+def _looks_like_mappable_label(item, metrics) -> tuple[bool, str | None]:
+    text = str(item.get("text", "")).strip()
+    if not text:
+        return False, "empty_label"
+
+    center = item.get("center")
+    page_height = float(metrics.get("page_height", 0.0) or 0.0)
+    top_header_limit = page_height * 0.30 if page_height else 0.0
+    lower_text = text.lower()
+    tokens = set(re.findall(r"[a-z0-9]+", lower_text))
+    has_field_keyword = bool(tokens & FIELD_LABEL_KEYWORDS)
+    has_numbered_prefix = bool(re.match(r"^\s*\d+[\s.):-]", text))
+    has_prompt_punctuation = ":" in text or "?" in text
+    alpha_chars = [char for char in text if char.isalpha()]
+    uppercase_ratio = (
+        sum(1 for char in alpha_chars if char.isupper()) / len(alpha_chars)
+        if alpha_chars
+        else 0.0
+    )
+    is_top_band = bool(center and top_header_limit and float(center[1]) < top_header_limit)
+
+    if has_field_keyword or has_numbered_prefix or has_prompt_punctuation:
+        return True, None
+    if is_top_band and uppercase_ratio >= 0.72:
+        return False, "top_header_or_title_text"
+    if is_top_band and len(tokens) <= 1:
+        return False, "top_header_short_text"
+
+    return True, None
 
 
 def _box_bounds(item):
@@ -310,6 +377,8 @@ def classify_confidence(best, runner_up=None) -> tuple[str, list[str]]:
     margin = score - (runner_up["candidate_score"] if runner_up else 0.0)
     notes = []
 
+    if score < 0.42:
+        return "unresolved", ["candidate_score_below_threshold"]
     if runner_up and margin < 0.08:
         notes.append("close_second_candidate")
         return "ambiguous", notes
@@ -601,6 +670,15 @@ def map_labels_to_fields(
     semantic_regions = semantic_regions if semantic_regions is not None else (layout_structure or {}).get("semantic_regions", [])
     logger.info("[mapping] dynamic_metrics=%s", metrics)
     logger.info("[mapping] semantic_regions=%s", len(semantic_regions or []))
+
+    mappable_labels = []
+    for item in labels:
+        keep, reason = _looks_like_mappable_label(item, metrics)
+        if keep:
+            mappable_labels.append(item)
+        else:
+            logger.info("[mapping] label skipped text=%r reason=%s", item.get("text", ""), reason)
+    labels = mappable_labels
 
     for label_index, item in enumerate(labels, start=1):
         label = item["text"]

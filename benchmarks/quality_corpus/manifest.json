@@ -1,0 +1,38 @@
+{
+  "name": "quality-corpus",
+  "description": "A small validation corpus assembled from preserved pipeline runs to compare OCR normalization and structural reasoning across dense, noisy, and multiline-heavy layouts.",
+  "baseline_sample_id": "validation_reference",
+  "samples": [
+    {
+      "id": "validation_reference",
+      "artifact_dir": "output/_validation",
+      "source_image": "output/form_page_1.png",
+      "notes": "Canonical multiline-heavy reference snapshot with a validated ownership propagation path."
+    },
+    {
+      "id": "dense_header_variant",
+      "artifact_dir": "output/runs/685d4f96dadf413d9827125852c2f07d",
+      "notes": "Dense header and weak-line heavy run with many ambiguous mappings."
+    },
+    {
+      "id": "balanced_line_variant",
+      "artifact_dir": "output/runs/6574eb19ea4247c9a990d27b640f0bb8",
+      "notes": "Balanced scan with mostly strong matches and a larger unmatched-label tail."
+    },
+    {
+      "id": "mixed_layout_variant",
+      "artifact_dir": "output/runs/353974d77a6e4ec8a37daa93f2df0454",
+      "notes": "Mixed-layout sample with both line and weak-line candidates."
+    },
+    {
+      "id": "noisy_fragmented_variant",
+      "artifact_dir": "output/runs/14032c02f83b4cc2a939b03ce7c33009",
+      "notes": "Noisy OCR sample with substantial ambiguity and token fragmentation."
+    },
+    {
+      "id": "alternate_sparse_variant",
+      "artifact_dir": "output/runs/d66e107020914c15bb2d7e4eb51cfd80",
+      "notes": "Sparse-output variant used to check stability when diagnostics are incomplete."
+    }
+  ]
+}

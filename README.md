@@ -36,6 +36,11 @@ Environment variables:
 - `FORM_PARSER_UPLOAD_DIR` sets the temporary upload directory.
 - `FORM_PARSER_RUNS_DIR` sets the per-request run directory.
 - `CORS_ORIGINS` sets allowed frontend origins as a comma-separated list.
+- `FORM_PARSER_OCR_LANGUAGES` sets EasyOCR languages as a comma-separated list, defaulting to `en`.
+- `FORM_PARSER_EASYOCR_MODEL_DIR` sets an optional model cache directory.
+- `FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED` controls whether EasyOCR may download missing models, defaulting to `true`.
+- `FORM_PARSER_OCR_THREADS` controls EasyOCR/PyTorch CPU threads, defaulting to `1`.
+- `FORM_PARSER_OCR_BATCH_SIZE` controls EasyOCR read batch size, defaulting to `1`.
 
 Available endpoints:
 
@@ -63,4 +68,4 @@ sudo apt-get install -y poppler-utils
 pip install -r requirements.txt
 ```
 
-PaddleOCR loads lazily on the first request and is cached for later requests.
+EasyOCR loads lazily in CPU mode on the first request and is cached for later requests. For production containers, prewarm or persist the EasyOCR model cache so the runtime does not depend on downloading models during the first upload.

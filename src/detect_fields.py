@@ -440,12 +440,60 @@ def is_near_text(line, ocr_data, max_vertical_distance: int = 30) -> bool:
     x1, y1 = line["start"]
     x2, y2 = line["end"]
     line_y = (y1 + y2) / 2
+    line_left = min(x1, x2)
+    line_right = max(x1, x2)
 
     for item in ocr_data:
-        text_y = item["center"][1]
+        center = item.get("center")
+        if center:
+            text_x, text_y = center
+        else:
+            bounds = _ocr_bounds(item)
+            if bounds is None:
+                continue
+            text_x = (bounds[0] + bounds[2]) / 2.0
+            text_y = (bounds[1] + bounds[3]) / 2.0
 
         # Keep lines that sit close to a nearby OCR label.
-        if abs(text_y - line_y) < max_vertical_distance:
+        horizontally_relevant = text_x <= line_right + 80 and line_left <= text_x + 900
+        if horizontally_relevant and abs(text_y - line_y) < max_vertical_distance:
+            return True
+
+    return False
+
+
+def _line_overlaps_ocr_text(line, ocr_data, padding: float = 2.0) -> bool:
+    x1, y1 = line["start"]
+    x2, y2 = line["end"]
+    line_left = min(x1, x2)
+    line_right = max(x1, x2)
+    line_width = max(line_right - line_left, 1.0)
+    line_y = (y1 + y2) / 2.0
+
+    for item in ocr_data:
+        bounds = _ocr_bounds(item)
+        if bounds is None:
+            continue
+
+        text_left, text_top, text_right, text_bottom = bounds
+        text_width = max(text_right - text_left, 1.0)
+        text_height = max(text_bottom - text_top, 1.0)
+
+        interior_top = text_top + max(2.0, text_height * 0.15)
+        interior_bottom = text_bottom - max(2.0, text_height * 0.10)
+        if not (interior_top - padding <= line_y <= interior_bottom + padding):
+            continue
+
+        overlap = max(
+            0.0,
+            min(line_right, text_right + padding) - max(line_left, text_left - padding),
+        )
+        if overlap <= 0:
+            continue
+
+        overlaps_text_run = overlap >= min(text_width * 0.35, line_width * 0.55)
+        overlaps_enough_pixels = overlap >= 24.0
+        if overlaps_text_run or overlaps_enough_pixels:
             return True
 
     return False
@@ -469,9 +517,10 @@ def filter_field_lines(
             and line_length(line) > min_length
             and is_right_side(line, x_threshold=x_threshold)
             and is_near_text(line, ocr_data, max_vertical_distance=max_vertical_distance)
+            and not _line_overlaps_ocr_text(line, ocr_data)
         ):
             filtered.append(line)
-    return filtered
+    return deduplicate_detected_lines(filtered)
 
 
 def _line_center(line):

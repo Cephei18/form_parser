@@ -555,6 +555,7 @@ def infer_page_structure(ocr_data, field_lines, semantic_regions=None):
     label_zones = _build_zones(bands, label_columns, entities["ocr"], "label", metrics)
     field_zones = _build_zones(bands, field_columns, entities["fields"], "field", metrics)
     ownership_regions = _build_ownership_regions(label_zones, field_zones, bands, metrics)
+    band_lookup = {band["id"]: band for band in bands}
 
     for zone in field_zones:
         bounds = zone.get("bounds")
@@ -563,7 +564,11 @@ def infer_page_structure(ocr_data, field_lines, semantic_regions=None):
         width = bounds[2] - bounds[0]
         height = bounds[3] - bounds[1]
         area = width * height
+        band = band_lookup.get(zone.get("band_id"), {})
+        label_supported_field_band = int(band.get("label_count", 0)) > 0 and int(band.get("field_count", 0)) > 0
         sparse_zone = zone.get("text_count", 0) == 0 and zone.get("line_count", 0) >= 1 and zone.get("support", 0.0) < 0.55
+        if label_supported_field_band and sparse_zone:
+            continue
         large_sparse_zone = sparse_zone and height >= metrics["avg_text_height"] * 2.0 and area >= max(metrics["avg_text_height"] * metrics["avg_text_width"] * 0.5, 1200.0)
         square_sparse_zone = sparse_zone and 0.7 <= width / max(height, 1.0) <= 1.4 and area >= 700.0
         if large_sparse_zone or square_sparse_zone:
@@ -577,7 +582,6 @@ def infer_page_structure(ocr_data, field_lines, semantic_regions=None):
                 }
             )
 
-    band_lookup = {band["id"]: band for band in bands}
     label_zone_lookup = {zone["id"]: zone for zone in label_zones}
     field_zone_lookup = {zone["id"]: zone for zone in field_zones}
     column_lookup = {column["id"]: column for column in (label_columns + field_columns)}

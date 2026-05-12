@@ -22,4 +22,4 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_API_BASE_URL` to your backend URL, for example `http://127.0.0.1:8000` during local development or your EC2 load balancer / instance URL in deployment.
+Set `NEXT_PUBLIC_API_BASE_URL` to your backend URL, for example your backend host and port during local development or your EC2 load balancer / instance URL in deployment.
