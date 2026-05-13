@@ -15,7 +15,7 @@ services:
       FORM_PARSER_RUNS_DIR: /app/output/runs
       FORM_PARSER_EASYOCR_MODEL_DIR: /app/output/easyocr-models
       FORM_PARSER_OCR_THREADS: "1"
-      CORS_ORIGINS: http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
+      CORS_ORIGINS: http://localhost:3000,http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
     volumes:
       - form_parser_output:/app/output
       - form_parser_uploads:/app/output/uploads

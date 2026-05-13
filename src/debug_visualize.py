@@ -59,7 +59,11 @@ def _load_json(path: Path, default):
         return json.load(f)
 
 
-def create_debug_overlay(project_root: Path, output_path: Path | None = None) -> Path:
+def create_debug_overlay(
+    project_root: Path,
+    output_path: Path | None = None,
+    image_path: Path | None = None,
+) -> Path:
     output_dir = project_root / "output"
     output_path = output_path or output_dir / "debug_reasoning.png"
 
@@ -68,11 +72,11 @@ def create_debug_overlay(project_root: Path, output_path: Path | None = None) ->
     diagnostics = _load_json(output_dir / "mapping_diagnostics.json", {})
     layout_structure = _load_json(output_dir / "layout_structure.json", {})
 
-    image_path = resolve_input_image(project_root)
-    img = cv2.imread(str(image_path))
+    source_image_path = image_path or resolve_input_image(project_root)
+    img = cv2.imread(str(source_image_path))
 
     if img is None:
-        raise RuntimeError(f"Failed to read image: {image_path}")
+        raise RuntimeError(f"Failed to read image: {source_image_path}")
 
     for item in result_data:
         bounds = _ocr_bounds(item)

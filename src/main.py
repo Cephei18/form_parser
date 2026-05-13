@@ -280,7 +280,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
 
     debug_reasoning_path = output_dir / "debug_reasoning.png"
     _stage(f"debug overlay save start: {debug_reasoning_path}")
-    create_debug_overlay(Path(__file__).resolve().parents[1], debug_reasoning_path)
+    create_debug_overlay(Path(__file__).resolve().parents[1], debug_reasoning_path, image_path=image_path)
     if not debug_reasoning_path.exists() or debug_reasoning_path.stat().st_size <= 0:
         raise RuntimeError(f"debug overlay save failed or produced empty file: {debug_reasoning_path}")
     _stage(f"debug overlay save end: {debug_reasoning_path} size={debug_reasoning_path.stat().st_size}")
