@@ -1,0 +1,54 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: form-parser-backend:latest
+    container_name: form-parser-backend
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+    environment:
+      FORM_PARSER_OUTPUT_DIR: /app/output
+      FORM_PARSER_UPLOAD_DIR: /app/output/uploads
+      FORM_PARSER_RUNS_DIR: /app/output/runs
+      FORM_PARSER_EASYOCR_MODEL_DIR: /app/output/easyocr-models
+      # Production disables OCR model downloads so startup does not depend on
+      # external network access. Pre-seed or preserve this directory on EC2.
+      FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED: "false"
+      FORM_PARSER_OCR_THREADS: "1"
+      FORM_PARSER_OCR_BATCH_SIZE: "1"
+      CORS_ORIGINS: http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
+
+    volumes:
+      # EC2 bind mounts keep generated artifacts on explicit host paths for
+      # backups, inspection, cleanup, and redeploys outside Docker volume state.
+      - type: bind
+        source: /srv/form_parser/data/output
+        target: /app/output
+      - type: bind
+        source: /srv/form_parser/data/uploads
+        target: /app/output/uploads
+      - type: bind
+        source: /srv/form_parser/data/runs
+        target: /app/output/runs
+      # EasyOCR models must persist because production runtime downloads are
+      # disabled. Losing this cache can make OCR initialization fail.
+      - type: bind
+        source: /srv/form_parser/data/easyocr-models
+        target: /app/output/easyocr-models
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
