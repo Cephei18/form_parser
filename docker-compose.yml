@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: form-parser-backend:latest
+    container_name: form-parser-backend
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      FORM_PARSER_OUTPUT_DIR: /app/output
+      FORM_PARSER_UPLOAD_DIR: /app/output/uploads
+      FORM_PARSER_RUNS_DIR: /app/output/runs
+      FORM_PARSER_EASYOCR_MODEL_DIR: /app/output/easyocr-models
+      FORM_PARSER_OCR_THREADS: "1"
+      CORS_ORIGINS: http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
+    volumes:
+      - form_parser_output:/app/output
+      - form_parser_uploads:/app/output/uploads
+      - form_parser_runs:/app/output/runs
+      - form_parser_easyocr_models:/app/output/easyocr-models
+
+volumes:
+  form_parser_output:
+  form_parser_uploads:
+  form_parser_runs:
+  form_parser_easyocr_models:
