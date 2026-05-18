@@ -1,0 +1,48 @@
+{
+  "name": "structural-reasoning-eval-corpus",
+  "description": "Representative form samples for isolated structural reasoning evaluation. This corpus reuses the preprocessing evaluation forms so field-quality, grouping, ownership, and table-aware changes can be compared against the same preserved artifacts.",
+  "samples": [
+    {
+      "id": "simple_structured_balanced",
+      "category": "simple structured forms",
+      "source_image": "output/runs/6574eb19ea4247c9a990d27b640f0bb8/converted_91e8996d3ecd4d258156cc3912bfb8bd.png",
+      "reference_artifact_dir": "output/runs/6574eb19ea4247c9a990d27b640f0bb8",
+      "notes": "Balanced scan with mostly strong matches and a larger unmatched-label tail."
+    },
+    {
+      "id": "multiline_reference",
+      "category": "multiline forms",
+      "source_image": "output/form_page_1.png",
+      "reference_artifact_dir": "output/_validation",
+      "notes": "Canonical multiline-heavy reference snapshot."
+    },
+    {
+      "id": "table_heavy_repeated_rows",
+      "category": "table-heavy forms",
+      "source_image": "output/runs/685d4f96dadf413d9827125852c2f07d/converted_28b5f1b4a7d1441b8a3a98edeaa0b964.png",
+      "reference_artifact_dir": "output/runs/685d4f96dadf413d9827125852c2f07d",
+      "notes": "Dense header and repeated-row layout used as table-behavior proxy."
+    },
+    {
+      "id": "noisy_fragmented_scan",
+      "category": "noisy/low-quality scans",
+      "source_image": "output/runs/14032c02f83b4cc2a939b03ce7c33009/converted_0879e98868294ff2bff638c397847fc0.png",
+      "reference_artifact_dir": "output/runs/14032c02f83b4cc2a939b03ce7c33009",
+      "notes": "Noisy OCR sample with substantial ambiguity and token fragmentation."
+    },
+    {
+      "id": "dense_mixed_layout",
+      "category": "dense layouts",
+      "source_image": "output/runs/353974d77a6e4ec8a37daa93f2df0454/converted_8321ef1bfbca407da7df0a266d3e7383.png",
+      "reference_artifact_dir": "output/runs/353974d77a6e4ec8a37daa93f2df0454",
+      "notes": "Mixed-layout sample with both line and weak-line candidates."
+    },
+    {
+      "id": "sparse_alternate_layout",
+      "category": "simple structured forms",
+      "source_image": "output/runs/d66e107020914c15bb2d7e4eb51cfd80/converted_eb50d520ed184b37b23ce6500103993d.png",
+      "reference_artifact_dir": "output/runs/d66e107020914c15bb2d7e4eb51cfd80",
+      "notes": "Sparse-output variant used to check stability when diagnostics are incomplete."
+    }
+  ]
+}

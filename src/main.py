@@ -115,30 +115,56 @@ def resolve_uploaded_input(input_file: Path, output_dir: Path) -> Path:
 
 def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     from src.detect_fields import (
+        build_field_filter_thresholds,
         deduplicate_detected_lines,
         detect_additional_field_candidates,
+        detect_checkbox_mappings,
         detect_lines,
         detect_semantic_regions,
+        detect_table_regions as detect_image_table_regions,
         draw_lines,
+        fallback_field_lines_from_ocr,
         filter_field_lines,
+        filter_lines_outside_table_regions,
+        table_regions_to_semantic_regions,
     )
     from src.global_layout import infer_page_structure
     from src.mapping import draw_mapping, map_labels_to_fields
     from src.debug_visualize import create_debug_overlay
     from src.evaluation import evaluate_mapping_file
-    from src.ocr import extract_text
+    from src.ocr import extract_text_with_diagnostics
+    from src.pipeline_compare import compare_pipeline_runs
+    from src.pipeline_config import PipelineConfig
+    from src.preprocessing import preprocess_image
+    from src.structural_refinement import refine_field_candidates, refine_layout_structure
     from src.pdf_generator import create_pdf_with_fields
     from src.utils import get_center
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    image_path_str = str(image_path)
 
     pipeline_started = time.perf_counter()
+    config = PipelineConfig.from_env()
     _stage(f"start image={image_path} output_dir={output_dir}")
+    _stage(f"config={config.to_dict()}")
+
+    _stage("preprocessing start")
+    preprocessing_result = preprocess_image(image_path, output_dir, config.preprocessing)
+    preprocessing_diagnostics_path = output_dir / "preprocessing_diagnostics.json"
+    _write_json(preprocessing_diagnostics_path, preprocessing_result.diagnostics, "preprocessing_diagnostics.json")
+    image_path_str = str(preprocessing_result.working_path)
+    _stage(f"preprocessing end working_image={preprocessing_result.working_path}")
 
     _stage("OCR start")
-    data = extract_text(image_path_str)
+    ocr_payload = extract_text_with_diagnostics(image_path_str)
+    data = ocr_payload["items"]
+    raw_ocr_data = ocr_payload["raw_items"]
     _stage(f"OCR end count={len(data or [])}")
+
+    ocr_raw_path = output_dir / "ocr_raw.json"
+    ocr_diagnostics_path = output_dir / "ocr_diagnostics.json"
+    if config.ocr_diagnostics_enabled:
+        _write_json(ocr_raw_path, raw_ocr_data, "ocr_raw.json")
+        _write_json(ocr_diagnostics_path, ocr_payload["diagnostics"], "ocr_diagnostics.json")
 
     result = []
 
@@ -174,8 +200,18 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         f"additional field candidate detection end count={len(additional_lines)} total={len(candidate_lines)}"
     )
 
+    image_table_regions = []
+    if config.image_table_filtering_enabled:
+        _stage("image table region detection start")
+        image_table_regions = detect_image_table_regions(image_path_str)
+        candidate_lines = filter_lines_outside_table_regions(candidate_lines, image_table_regions)
+        _stage(
+            f"image table region detection end regions={len(image_table_regions)} remaining_candidates={len(candidate_lines)}"
+        )
+
     _stage("semantic region classification start")
     semantic_regions = detect_semantic_regions(image_path_str, result, candidate_lines)
+    semantic_regions = table_regions_to_semantic_regions(image_table_regions) + semantic_regions
     excluded_regions = [
         region
         for region in semantic_regions
@@ -193,11 +229,96 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     )
 
     _stage("field line filtering start")
-    filtered_lines = filter_field_lines(candidate_lines, result, excluded_regions=excluded_regions)
+    field_threshold_diagnostics = {
+        "mode": "legacy_fixed",
+        "legacy_fixed_thresholds": {
+            "min_length": 100,
+            "x_threshold": 300,
+            "max_vertical_distance": 30,
+        },
+    }
+    field_filter_kwargs = {}
+    if config.dynamic_thresholds_enabled:
+        threshold_payload = build_field_filter_thresholds(image_path_str, result, candidate_lines)
+        field_threshold_diagnostics = {"mode": "page_relative", **threshold_payload["diagnostics"]}
+        field_filter_kwargs = {
+            "min_length": threshold_payload["min_length"],
+            "x_threshold": threshold_payload["x_threshold"],
+            "max_vertical_distance": threshold_payload["max_vertical_distance"],
+        }
+
+    filtered_lines = filter_field_lines(
+        candidate_lines,
+        result,
+        excluded_regions=excluded_regions,
+        **field_filter_kwargs,
+    )
+    fallback_lines = []
+    if config.fallback_field_lines_enabled and not filtered_lines:
+        _stage("fallback OCR-derived field candidate detection start")
+        fallback_lines = fallback_field_lines_from_ocr(image_path_str, result)
+        filtered_lines = filter_field_lines(
+            deduplicate_detected_lines(candidate_lines + fallback_lines),
+            result,
+            excluded_regions=excluded_regions,
+            **field_filter_kwargs,
+        )
+        _stage(f"fallback OCR-derived field candidate detection end count={len(fallback_lines)}")
+
+    structural_refinement_diagnostics = {
+        "enabled": config.structural_refinement.enabled,
+        "field_candidate_quality": {
+            "enabled": False,
+            "input_count": len(filtered_lines),
+            "output_count": len(filtered_lines),
+            "removed_count": 0,
+        },
+        "layout_refinement": {
+            "enabled": False,
+        },
+    }
+    if config.structural_refinement.enabled and config.structural_refinement.field_quality_enabled:
+        _stage("structural field candidate refinement start")
+        field_refinement = refine_field_candidates(
+            image_path_str,
+            filtered_lines,
+            result,
+            semantic_regions,
+            config.structural_refinement,
+        )
+        filtered_lines = field_refinement.lines
+        structural_refinement_diagnostics["field_candidate_quality"] = field_refinement.diagnostics
+        _stage(
+            "structural field candidate refinement end input=%s output=%s removed=%s"
+            % (
+                field_refinement.diagnostics.get("input_count", 0),
+                field_refinement.diagnostics.get("output_count", 0),
+                field_refinement.diagnostics.get("removed_count", 0),
+            )
+        )
     _stage(f"field line filtering end count={len(filtered_lines)}")
 
     _stage("layout structure inference start")
     layout_structure = infer_page_structure(result, filtered_lines, semantic_regions)
+    if config.structural_refinement.enabled:
+        _stage("structural layout refinement start")
+        layout_structure, layout_refinement_diagnostics = refine_layout_structure(
+            layout_structure,
+            result,
+            filtered_lines,
+            semantic_regions,
+            config.structural_refinement,
+            structural_refinement_diagnostics.get("field_candidate_quality"),
+        )
+        structural_refinement_diagnostics["layout_refinement"] = layout_refinement_diagnostics
+        _stage(
+            "structural layout refinement end sections=%s ownership_chains=%s tables=%s"
+            % (
+                layout_refinement_diagnostics.get("section_count", 0),
+                layout_refinement_diagnostics.get("ownership_chain_count", 0),
+                layout_refinement_diagnostics.get("table_structure_count", 0),
+            )
+        )
     _stage(
         "layout structure inference end rows=%s clusters=%s regions=%s"
         % (
@@ -205,6 +326,13 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
             len(layout_structure.get("field_clusters", [])),
             len(semantic_regions),
         )
+    )
+
+    structural_refinement_path = output_dir / "structural_refinement_diagnostics.json"
+    _write_json(
+        structural_refinement_path,
+        structural_refinement_diagnostics,
+        "structural_refinement_diagnostics.json",
     )
 
     lines_output_path = output_dir / "lines_detected.png"
@@ -221,6 +349,17 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         layout_structure=layout_structure,
         semantic_regions=semantic_regions,
     )
+    checkbox_mappings = []
+    if config.checkbox_detection_enabled:
+        _stage("checkbox mapping detection start")
+        checkbox_mappings = detect_checkbox_mappings(image_path_str, result)
+        mapped_labels = {mapping.get("label") for mapping in mappings or []}
+        for checkbox_mapping in checkbox_mappings:
+            if checkbox_mapping.get("label") in mapped_labels:
+                continue
+            mappings.append(checkbox_mapping)
+            mapped_labels.add(checkbox_mapping.get("label"))
+        _stage(f"checkbox mapping detection end count={len(checkbox_mappings)} total={len(mappings or [])}")
     _stage(f"mapping end count={len(mappings or [])}")
 
     mappings_path = output_dir / "mappings.json"
@@ -230,9 +369,12 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     _write_json(layout_structure_path, layout_structure, "layout_structure.json")
 
     diagnostics_path = output_dir / "mapping_diagnostics.json"
-    ocr_source_items = sum(int(item.get("source_item_count", 1) or 1) for item in result)
-    merged_ocr_items = sum(1 for item in result if int(item.get("source_item_count", 1) or 1) > 1)
+    ocr_source_items = sum(int(item.get("source_item_count", 1) or 1) for item in data or [])
+    merged_ocr_items = sum(1 for item in data or [] if int(item.get("source_item_count", 1) or 1) > 1)
+    effective_excluded_regions = layout_structure.get("excluded_regions", excluded_regions)
     diagnostics = {
+        "pipeline_config": config.to_dict(),
+        "preprocessing": preprocessing_result.diagnostics,
         "labels_processed": len(result),
         "mappings_selected": len(mappings or []),
         "ocr_summary": {
@@ -240,9 +382,15 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
             "merged_item_count": merged_ocr_items,
             "source_items_merged": ocr_source_items,
         },
+        "ocr_diagnostics": ocr_payload["diagnostics"],
+        "field_filter_thresholds": field_threshold_diagnostics,
         "field_candidate_count": len(filtered_lines),
+        "fallback_field_candidate_count": len(fallback_lines),
+        "image_table_region_count": len(image_table_regions),
+        "checkbox_mapping_candidate_count": len(checkbox_mappings),
         "semantic_region_count": len(semantic_regions),
-        "excluded_region_count": len(excluded_regions),
+        "excluded_region_count": len(effective_excluded_regions or []),
+        "structural_refinement": structural_refinement_diagnostics,
         "unresolved_labels": [
             item.get("text")
             for item in result
@@ -250,7 +398,14 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         ],
         "mappings": mappings or [],
         "semantic_regions": semantic_regions,
+        "image_table_regions": image_table_regions,
         "layout_structure": layout_structure,
+        "artifact_paths": {
+            "preprocessing_diagnostics": str(preprocessing_diagnostics_path),
+            "ocr_raw": str(ocr_raw_path) if config.ocr_diagnostics_enabled else None,
+            "ocr_diagnostics": str(ocr_diagnostics_path) if config.ocr_diagnostics_enabled else None,
+            "structural_refinement_diagnostics": str(structural_refinement_path),
+        },
     }
     _write_json(diagnostics_path, diagnostics, "mapping_diagnostics.json")
 
@@ -280,7 +435,12 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
 
     debug_reasoning_path = output_dir / "debug_reasoning.png"
     _stage(f"debug overlay save start: {debug_reasoning_path}")
-    create_debug_overlay(Path(__file__).resolve().parents[1], debug_reasoning_path, image_path=image_path)
+    create_debug_overlay(
+        Path(__file__).resolve().parents[1],
+        debug_reasoning_path,
+        image_path=preprocessing_result.working_path,
+        artifact_dir=output_dir,
+    )
     if not debug_reasoning_path.exists() or debug_reasoning_path.stat().st_size <= 0:
         raise RuntimeError(f"debug overlay save failed or produced empty file: {debug_reasoning_path}")
     _stage(f"debug overlay save end: {debug_reasoning_path} size={debug_reasoning_path.stat().st_size}")
@@ -294,18 +454,36 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         raise
     _stage(f"PDF generation end: {pdf_output_path}")
 
+    comparison_path = None
+    if config.baseline_dir is not None and config.baseline_dir.exists():
+        comparison_path = output_dir / "before_after_comparison.json"
+        _stage(f"before/after comparison start baseline={config.baseline_dir}")
+        compare_pipeline_runs(
+            config.baseline_dir,
+            output_dir,
+            output_path=comparison_path,
+            image_path=preprocessing_result.working_path,
+        )
+        _stage(f"before/after comparison end: {comparison_path}")
+
     _stage(f"end elapsed={time.perf_counter() - pipeline_started:.2f}s")
 
     return {
+        "preprocessing_diagnostics_path": preprocessing_diagnostics_path,
+        "ocr_raw_path": ocr_raw_path if config.ocr_diagnostics_enabled else None,
+        "ocr_diagnostics_path": ocr_diagnostics_path if config.ocr_diagnostics_enabled else None,
         "result_path": result_path,
         "lines_output_path": lines_output_path,
         "mappings_path": mappings_path,
         "layout_structure_path": layout_structure_path,
+        "structural_refinement_path": structural_refinement_path,
         "diagnostics_path": diagnostics_path,
         "mapping_image_path": mapping_image_path,
         "pdf_output_path": pdf_output_path,
+        "comparison_path": comparison_path,
         "lines_count": len(lines),
         "additional_lines_count": len(additional_lines),
+        "image_table_regions_count": len(image_table_regions),
         "semantic_regions": semantic_regions,
         "filtered_lines_count": len(filtered_lines),
         "mappings": mappings,

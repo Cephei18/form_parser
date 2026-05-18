@@ -63,8 +63,9 @@ def create_debug_overlay(
     project_root: Path,
     output_path: Path | None = None,
     image_path: Path | None = None,
+    artifact_dir: Path | None = None,
 ) -> Path:
-    output_dir = project_root / "output"
+    output_dir = artifact_dir or project_root / "output"
     output_path = output_path or output_dir / "debug_reasoning.png"
 
     result_data = _load_json(output_dir / "result.json", [])
@@ -140,6 +141,22 @@ def create_debug_overlay(
         color = (200, 80, 0) if zone.get("zone_type") == "label" else (80, 180, 60)
         cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 1)
         _draw_text(img, zone.get("type", "zone"), (x1, max(12, y1 - 6)), color)
+
+    for section in layout_structure.get("sections", []):
+        bounds = section.get("bounds")
+        if not bounds or len(bounds) != 4:
+            continue
+        x1, y1, x2, y2 = bounds
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (90, 90, 220), 2)
+        _draw_text(img, f"section {section.get('id', '')}", (x1, max(12, y1 - 20)), (90, 90, 220))
+
+    for table in layout_structure.get("table_structures", []):
+        bounds = table.get("bounds")
+        if not bounds or len(bounds) != 4:
+            continue
+        x1, y1, x2, y2 = bounds
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 210, 210), 2)
+        _draw_text(img, f"table {table.get('confidence', 0):.2f}", (x1, max(12, y1 - 20)), (0, 210, 210))
 
     for region in layout_structure.get("excluded_regions", []):
         bounds = region.get("bounds")

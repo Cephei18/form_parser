@@ -259,6 +259,10 @@ def score_candidate(label_item, line, assigned_lines, metrics, table_regions, la
         "column_consistency": float(relationship_features.get("column_consistency", 0.0)),
         "ownership_confidence": float(relationship_features.get("ownership_confidence", 0.0)),
         "excluded_penalty": float(relationship_features.get("excluded_penalty", 0.0)),
+        "same_section": float(relationship_features.get("same_section", 0.0)),
+        "section_confidence": float(relationship_features.get("section_confidence", 0.0)),
+        "ownership_chain_score": float(relationship_features.get("ownership_chain_score", 0.0)),
+        "table_structure_penalty": float(relationship_features.get("table_structure_penalty", 0.0)),
     }
 
     horizontal_score = _clamp01(1.0 - abs(dx) / max(metrics["avg_text_width"] * 2.0, 100.0))
@@ -319,6 +323,24 @@ def score_candidate(label_item, line, assigned_lines, metrics, table_regions, la
         + ownership_strength * 0.04
         + region_support * 0.04
     )
+    section_score = _clamp01(
+        structure_context["same_section"] * 0.64
+        + structure_context["section_confidence"] * 0.20
+        + structure_context["ownership_chain_score"] * 0.16
+    )
+    if structure_context["same_section"] > 0:
+        reasons.append("same_structural_section")
+    if structure_context["ownership_chain_score"] >= 0.45:
+        reasons.append("ownership_chain_support")
+    if structure_context["table_structure_penalty"] > 0.5:
+        rejection_reasons.append("inside_table_structure")
+
+    global_score = _clamp01(
+        global_score
+        + section_score * 0.08
+        + structure_context["ownership_chain_score"] * 0.08
+        - structure_context["table_structure_penalty"] * 0.45
+    )
 
     candidate_score = (local_score * 0.45) + (global_score * 0.55)
 
@@ -332,6 +354,11 @@ def score_candidate(label_item, line, assigned_lines, metrics, table_regions, la
         "global_structure_score": round(structure_context["global_structure_score"], 4),
         "column_consistency": round(structure_context["column_consistency"], 4),
         "ownership_confidence": round(structure_context["ownership_confidence"], 4),
+        "same_section": round(structure_context["same_section"], 4),
+        "section_confidence": round(structure_context["section_confidence"], 4),
+        "section_score": round(section_score, 4),
+        "ownership_chain_score": round(structure_context["ownership_chain_score"], 4),
+        "table_structure_penalty": round(structure_context["table_structure_penalty"], 4),
         "horizontal_alignment": round(horizontal_score, 4),
         "vertical_alignment": round(vertical_score, 4),
         "row_overlap": round(row_score, 4),
@@ -546,32 +573,45 @@ def is_table_row(row_lines, threshold=10):
     return len(row_lines) >= threshold
 
 
-def detect_table_regions(lines, y_threshold=15, min_lines=5):
-    """Detect vertically dense regions of lines (likely tables)."""
-    regions = []
-
+def detect_table_regions(lines, y_threshold=15, min_lines=8, min_rows=4, row_band_gap=56):
+    """Detect repeated dense line bands while avoiding single fragmented field guides."""
     if not lines:
-        return regions
+        return []
 
-    lines_sorted = sorted(lines, key=lambda l: l["start"][1])
-
+    lines_sorted = sorted(lines, key=lambda l: line_center(l)[1])
+    row_groups = []
     current_group = [lines_sorted[0]]
 
-    for i in range(1, len(lines_sorted)):
-        prev = lines_sorted[i - 1]
-        curr = lines_sorted[i]
+    for current in lines_sorted[1:]:
+        previous_y = line_center(current_group[-1])[1]
+        current_y = line_center(current)[1]
+        if abs(current_y - previous_y) < y_threshold:
+            current_group.append(current)
+            continue
+        row_groups.append(current_group)
+        current_group = [current]
 
-        if abs(curr["start"][1] - prev["start"][1]) < y_threshold:
-            current_group.append(curr)
-        else:
-            if len(current_group) >= min_lines:
-                regions.append(current_group)
-            current_group = [curr]
+    row_groups.append(current_group)
+    dense_rows = [group for group in row_groups if len(group) >= min_lines]
+    if len(dense_rows) < min_rows:
+        return []
 
-    if len(current_group) >= min_lines:
-        regions.append(current_group)
+    bands = []
+    current_band = [dense_rows[0]]
+    for row in dense_rows[1:]:
+        previous_y = line_center(current_band[-1][0])[1]
+        current_y = line_center(row[0])[1]
+        if 0 <= current_y - previous_y <= row_band_gap:
+            current_band.append(row)
+            continue
+        if len(current_band) >= min_rows:
+            bands.append([line for group in current_band for line in group])
+        current_band = [row]
 
-    return regions
+    if len(current_band) >= min_rows:
+        bands.append([line for group in current_band for line in group])
+
+    return bands
 
 
 def _select_weighted_candidate(
@@ -866,6 +906,22 @@ def draw_mapping(image_path, mappings, output_path, ocr_data=None, candidate_lin
         color = (200, 80, 0) if zone.get("zone_type") == "label" else (80, 180, 60)
         cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 1)
         _draw_text(img, zone.get("type", "zone"), (x1, max(12, y1 - 5)), color)
+
+    for section in (layout_structure or {}).get("sections", []):
+        bounds = section.get("bounds")
+        if not bounds or len(bounds) != 4:
+            continue
+        x1, y1, x2, y2 = bounds
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (90, 90, 220), 2)
+        _draw_text(img, f"section {section.get('id', '')}", (x1, max(12, y1 - 22)), (90, 90, 220))
+
+    for table in (layout_structure or {}).get("table_structures", []):
+        bounds = table.get("bounds")
+        if not bounds or len(bounds) != 4:
+            continue
+        x1, y1, x2, y2 = bounds
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 210, 210), 2)
+        _draw_text(img, f"table {float(table.get('confidence', 0.0)):.2f}", (x1, max(12, y1 - 22)), (0, 210, 210))
 
     for region in (layout_structure or {}).get("excluded_regions", []):
         bounds = region.get("bounds")

@@ -41,6 +41,20 @@ Environment variables:
 - `FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED` controls whether EasyOCR may download missing models, defaulting to `true`.
 - `FORM_PARSER_OCR_THREADS` controls EasyOCR/PyTorch CPU threads, defaulting to `1`.
 - `FORM_PARSER_OCR_BATCH_SIZE` controls EasyOCR read batch size, defaulting to `1`.
+- `FORM_PARSER_OCR_DIAGNOSTICS_ENABLED` writes `ocr_raw.json` and `ocr_diagnostics.json`, defaulting to `true`.
+- `FORM_PARSER_PREPROCESSING_ENABLED` enables the optional preprocessing stage, defaulting to `false`.
+- `FORM_PARSER_PREPROCESS_DENOISE`, `FORM_PARSER_PREPROCESS_CONTRAST`, `FORM_PARSER_PREPROCESS_SHARPEN`, `FORM_PARSER_PREPROCESS_ADAPTIVE_THRESHOLD`, `FORM_PARSER_PREPROCESS_SKEW`, and `FORM_PARSER_PREPROCESS_DPI_NORMALIZE` control individual preprocessing steps.
+- `FORM_PARSER_DYNAMIC_THRESHOLDS_ENABLED` enables page-relative field filtering thresholds, defaulting to `false` for production-safe behavior.
+- `FORM_PARSER_IMAGE_TABLE_FILTERING_ENABLED` enables dense table-region exclusion, defaulting to `false`.
+- `FORM_PARSER_FALLBACK_FIELD_LINES_ENABLED` enables OCR-derived field candidates when normal filtering finds no fields, defaulting to `false`.
+- `FORM_PARSER_CHECKBOX_DETECTION_ENABLED` enables checkbox mapping candidates, defaulting to `false`.
+- `FORM_PARSER_STRUCTURAL_REFINEMENT_ENABLED` enables optional structural reasoning refinements, defaulting to `false`.
+- `FORM_PARSER_FIELD_QUALITY_REFINEMENT_ENABLED` controls candidate quality scoring and decorative/table-line removal when structural refinement is enabled.
+- `FORM_PARSER_SECTION_GROUPING_ENABLED` controls section and logical-block formation when structural refinement is enabled.
+- `FORM_PARSER_OWNERSHIP_PROPAGATION_ENABLED` controls ownership-chain scoring when structural refinement is enabled.
+- `FORM_PARSER_TABLE_AWARE_REFINEMENT_ENABLED` controls table-structure penalties and exclusions when structural refinement is enabled.
+- `FORM_PARSER_MIN_FIELD_QUALITY_SCORE` controls the optional field-candidate quality cutoff, defaulting to `0.32`.
+- `FORM_PARSER_BASELINE_DIR` points at a previous run directory and writes `before_after_comparison.json` for the current run.
 
 Available endpoints:
 
@@ -57,6 +71,40 @@ Successful `POST /process-form` responses include:
 - `stats.mapping_count`
 
 Errors return a structured JSON response with `status`, `detail`, and `error`.
+
+## Phase 1 backend diagnostics
+
+The default pipeline remains production-safe: behavior-changing improvements are behind flags, while diagnostic artifacts are additive.
+
+Capture a baseline run:
+
+```bash
+python -c "from pathlib import Path; from src.main import resolve_input_image, run_pipeline; root=Path.cwd(); run_pipeline(resolve_input_image(root), root/'output'/'baselines'/'phase1_pre')"
+```
+
+Run a current comparison against that baseline:
+
+```bash
+FORM_PARSER_BASELINE_DIR=output/baselines/phase1_pre python -c "from pathlib import Path; from src.main import resolve_input_image, run_pipeline; root=Path.cwd(); run_pipeline(resolve_input_image(root), root/'output'/'baselines'/'phase1_after')"
+```
+
+Or compare any two saved run directories:
+
+```bash
+python src/pipeline_compare.py --baseline-dir output/baselines/phase1_pre --current-dir output/baselines/phase1_after --output output/baselines/phase1_after/before_after_comparison.json
+```
+
+Run isolated structural reasoning experiments:
+
+```bash
+python src/structural_evaluation.py
+```
+
+Run one structural experiment against one representative sample:
+
+```bash
+python src/structural_evaluation.py --samples multiline_reference --experiments section_grouping_only
+```
 
 ## Ubuntu / EC2 notes
 

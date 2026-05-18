@@ -115,12 +115,28 @@ def _normalize_bbox(raw_bbox: Any) -> list[list[float]] | None:
     return normalized
 
 
+def _clean_ocr_text(text: str) -> str:
+    replacements = {
+        "\u00a0": " ",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _normalize_easyocr_result(result: Any) -> dict[str, Any] | None:
     if not isinstance(result, (list, tuple)) or len(result) < 2:
         return None
 
     bbox = _normalize_bbox(result[0])
-    text = str(result[1]).strip() if result[1] is not None else ""
+    raw_text = str(result[1]).strip() if result[1] is not None else ""
+    text = _clean_ocr_text(raw_text)
     if bbox is None or not text:
         return None
 
@@ -131,7 +147,13 @@ def _normalize_easyocr_result(result: Any) -> dict[str, Any] | None:
         except (TypeError, ValueError):
             confidence = None
 
-    return {"text": text, "bbox": bbox, "confidence": confidence, "source_item_count": 1}
+    return {
+        "text": text,
+        "raw_text": raw_text,
+        "bbox": bbox,
+        "confidence": confidence,
+        "source_item_count": 1,
+    }
 
 
 def _ocr_bounds(item: dict[str, Any]) -> tuple[float, float, float, float] | None:
@@ -312,7 +334,71 @@ def normalize_ocr_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return merged
 
 
-def extract_text(image_path):
+def _confidence_distribution(items: list[dict[str, Any]]) -> dict[str, Any]:
+    values = [
+        float(item["confidence"])
+        for item in items
+        if isinstance(item.get("confidence"), (int, float))
+    ]
+    if not values:
+        return {
+            "available": False,
+            "count": 0,
+            "min": None,
+            "max": None,
+            "mean": None,
+            "median": None,
+            "buckets": {},
+        }
+
+    values = sorted(values)
+    buckets = {
+        "0.00-0.25": sum(1 for value in values if 0.0 <= value < 0.25),
+        "0.25-0.50": sum(1 for value in values if 0.25 <= value < 0.50),
+        "0.50-0.75": sum(1 for value in values if 0.50 <= value < 0.75),
+        "0.75-1.00": sum(1 for value in values if 0.75 <= value <= 1.0),
+    }
+    return {
+        "available": True,
+        "count": len(values),
+        "min": round(values[0], 4),
+        "max": round(values[-1], 4),
+        "mean": round(sum(values) / len(values), 4),
+        "median": round(float(median(values)), 4),
+        "buckets": buckets,
+    }
+
+
+def build_ocr_diagnostics(
+    raw_items: list[dict[str, Any]],
+    cleaned_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    text_changes = []
+    for item in raw_items:
+        raw_text = str(item.get("raw_text", "")).strip()
+        cleaned_text = str(item.get("text", "")).strip()
+        if raw_text and cleaned_text and raw_text != cleaned_text:
+            text_changes.append({"raw_text": raw_text, "cleaned_text": cleaned_text})
+        if len(text_changes) >= 25:
+            break
+
+    source_item_count = sum(int(item.get("source_item_count", 1) or 1) for item in cleaned_items)
+    merged_item_count = sum(1 for item in cleaned_items if int(item.get("source_item_count", 1) or 1) > 1)
+
+    return {
+        "raw_item_count": len(raw_items),
+        "cleaned_item_count": len(cleaned_items),
+        "dropped_item_count": max(0, len(raw_items) - source_item_count),
+        "merged_item_count": merged_item_count,
+        "source_items_merged": source_item_count,
+        "raw_confidence_distribution": _confidence_distribution(raw_items),
+        "cleaned_confidence_distribution": _confidence_distribution(cleaned_items),
+        "text_cleanup_change_count": len(text_changes),
+        "text_cleanup_examples": text_changes,
+    }
+
+
+def extract_text_with_diagnostics(image_path):
     logger.info("[ocr] extracting text from %s", image_path)
 
     if not Path(image_path).exists():
@@ -345,4 +431,12 @@ def extract_text(image_path):
 
     normalized = normalize_ocr_items(extracted)
     logger.info("[ocr] extracted items=%s normalized=%s image=%s", len(extracted), len(normalized), image_path)
-    return normalized
+    return {
+        "raw_items": extracted,
+        "items": normalized,
+        "diagnostics": build_ocr_diagnostics(extracted, normalized),
+    }
+
+
+def extract_text(image_path):
+    return extract_text_with_diagnostics(image_path)["items"]

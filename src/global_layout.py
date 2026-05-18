@@ -479,6 +479,59 @@ def _excluded_penalty(bounds, excluded_regions):
     return 0.0
 
 
+def _section_for_zone(zone, zone_kind: str, layout_structure):
+    if zone is None:
+        return None
+    indexes = (layout_structure or {}).get("indexes", {}) or {}
+    section_lookup = indexes.get("section_by_id", {}) or {}
+    if zone_kind == "label":
+        section_id = (indexes.get("section_by_label_zone_id", {}) or {}).get(zone.get("id"))
+    else:
+        section_id = (indexes.get("section_by_field_zone_id", {}) or {}).get(zone.get("id"))
+    return section_lookup.get(section_id) if section_id else None
+
+
+def _section_for_band(band, layout_structure):
+    if band is None:
+        return None
+    indexes = (layout_structure or {}).get("indexes", {}) or {}
+    section_id = (indexes.get("section_by_band_id", {}) or {}).get(band.get("id"))
+    return (indexes.get("section_by_id", {}) or {}).get(section_id) if section_id else None
+
+
+def _bounds_in_section(bounds, section) -> bool:
+    if section is None:
+        return True
+    section_bounds = section.get("bounds")
+    if not section_bounds:
+        return True
+    return _box_overlap(bounds, section_bounds) > 0 or _point_in_bounds(_box_center(bounds), section_bounds, padding=8.0)
+
+
+def _table_structure_penalty(bounds, layout_structure) -> float:
+    for table in (layout_structure or {}).get("table_structures", []) or []:
+        table_bounds = table.get("bounds")
+        if not table_bounds:
+            continue
+        if _box_overlap(bounds, table_bounds) > 0 or _point_in_bounds(_box_center(bounds), table_bounds, padding=4.0):
+            return float(table.get("confidence", 1.0) or 1.0)
+    return 0.0
+
+
+def _ownership_chain_score(label_zone, field_zone, layout_structure) -> float:
+    if label_zone is None or field_zone is None:
+        return 0.0
+    indexes = (layout_structure or {}).get("indexes", {}) or {}
+    pair_key = f"{label_zone.get('id')}::{field_zone.get('id')}"
+    pair_chain = (indexes.get("ownership_chain_by_pair", {}) or {}).get(pair_key)
+    if pair_chain is not None:
+        return float(pair_chain.get("score", 0.0) or 0.0)
+    label_chain = (indexes.get("ownership_chain_by_label_zone_id", {}) or {}).get(label_zone.get("id"))
+    if label_chain is not None and label_chain.get("field_zone_id") == field_zone.get("id"):
+        return float(label_chain.get("score", 0.0) or 0.0)
+    return 0.0
+
+
 def build_layout_metrics(ocr_data, field_lines, semantic_regions=None):
     text_heights = []
     text_widths = []
@@ -772,6 +825,7 @@ def candidate_lines_for_label(label_item, field_lines, layout_structure):
     label_band = _best_band_for_item(label_bounds, layout_structure.get("layout_bands", []))
     excluded_regions = layout_structure.get("excluded_regions", []) or []
     candidate_zones = []
+    label_section = _section_for_zone(label_zone, "label", layout_structure) or _section_for_band(label_band, layout_structure)
 
     if label_band is not None:
         candidate_zones = [zone for zone in layout_structure.get("field_zones", []) if zone.get("band_id") == label_band["id"]]
@@ -783,6 +837,15 @@ def candidate_lines_for_label(label_item, field_lines, layout_structure):
             ]
     if not candidate_zones:
         candidate_zones = list(layout_structure.get("field_zones", []))
+
+    if label_section is not None:
+        same_section_zones = [
+            zone
+            for zone in candidate_zones
+            if _section_for_zone(zone, "field", layout_structure) == label_section
+        ]
+        if same_section_zones:
+            candidate_zones = same_section_zones
 
     if label_zone is not None:
         same_column = [zone for zone in candidate_zones if zone.get("column_id") == label_zone.get("column_id")]
@@ -800,9 +863,13 @@ def candidate_lines_for_label(label_item, field_lines, layout_structure):
                 selected_lines.append(line)
                 continue
             if label_zone is not None and line_center[0] >= label_zone["bounds"][2] - layout_structure.get("metrics", {}).get("column_tolerance", 40.0):
+                if label_section is not None and not _bounds_in_section(bounds, label_section):
+                    continue
                 selected_lines.append(line)
                 continue
         else:
+            if label_section is not None and not _bounds_in_section(bounds, label_section):
+                continue
             selected_lines.append(line)
 
     if not selected_lines:
@@ -830,6 +897,10 @@ def structural_context_for(label_item, field_line, layout_structure):
             "global_structure_score": 0.0,
             "excluded_penalty": 0.0,
             "structural_band_support": 0.0,
+            "same_section": 0.0,
+            "section_confidence": 0.0,
+            "ownership_chain_score": 0.0,
+            "table_structure_penalty": 0.0,
         }
 
     label_zone = _best_zone_for_item(label_bounds, layout_structure.get("label_zones", []))
@@ -838,8 +909,13 @@ def structural_context_for(label_item, field_line, layout_structure):
     field_band = _best_band_for_item(line_bounds, layout_structure.get("layout_bands", []))
     label_column = next((column for column in layout_structure.get("label_columns", []) if column.get("id") == (label_zone or {}).get("column_id")), None)
     field_column = next((column for column in layout_structure.get("field_columns", []) if column.get("id") == (field_zone or {}).get("column_id")), None)
+    label_section = _section_for_zone(label_zone, "label", layout_structure) or _section_for_band(label_band, layout_structure)
+    field_section = _section_for_zone(field_zone, "field", layout_structure) or _section_for_band(field_band, layout_structure)
 
     same_band = 1.0 if label_band is not None and field_band is not None and label_band["id"] == field_band["id"] else 0.0
+    same_section = 1.0 if label_section is not None and field_section is not None and label_section.get("id") == field_section.get("id") else 0.0
+    section_confidence = float((field_section or label_section or {}).get("confidence", 0.0) or 0.0)
+    ownership_chain_score = _ownership_chain_score(label_zone, field_zone, layout_structure)
     band_alignment = 0.0
     if label_band is not None and field_band is not None:
         band_gap = abs(float(field_band.get("center_y", 0.0)) - float(label_band.get("center_y", 0.0)))
@@ -872,16 +948,21 @@ def structural_context_for(label_item, field_line, layout_structure):
         column_consistency = 0.55 if field_column.get("is_primary") else 0.35
 
     excluded_penalty = _excluded_penalty(line_bounds, layout_structure.get("excluded_regions", []))
+    table_structure_penalty = _table_structure_penalty(line_bounds, layout_structure)
     structural_band_support = max(same_band, band_support)
     global_structure_score = _clamp01(
-        (same_band * 0.22)
-        + (band_alignment * 0.18)
-        + (column_consistency * 0.32)
-        + (ownership_confidence * 0.26)
-        + (field_zone_support * 0.10)
-        + (label_zone_support * 0.06)
-        + (structural_band_support * 0.04)
+        (same_band * 0.18)
+        + (band_alignment * 0.16)
+        + (same_section * 0.12)
+        + (section_confidence * 0.05)
+        + (column_consistency * 0.28)
+        + (ownership_confidence * 0.20)
+        + (ownership_chain_score * 0.12)
+        + (field_zone_support * 0.08)
+        + (label_zone_support * 0.05)
+        + (structural_band_support * 0.03)
         - (excluded_penalty * 0.55)
+        - (table_structure_penalty * 0.45)
     )
 
     return {
@@ -900,6 +981,10 @@ def structural_context_for(label_item, field_line, layout_structure):
         "structural_band_support": round(structural_band_support, 4),
         "label_zone_support": round(label_zone_support, 4),
         "field_zone_support": round(field_zone_support, 4),
+        "same_section": round(same_section, 4),
+        "section_confidence": round(section_confidence, 4),
+        "ownership_chain_score": round(ownership_chain_score, 4),
+        "table_structure_penalty": round(table_structure_penalty, 4),
     }
 
 
@@ -922,11 +1007,14 @@ def relationship_features_for(label_item, field_line, layout_structure):
             "ownership_confidence": 0.0,
             "global_structure_score": 0.0,
             "band_alignment": 0.0,
-            "band_alignment": 0.0,
             "excluded_penalty": 0.0,
             "structural_band_support": 0.0,
             "label_zone_support": 0.0,
             "field_zone_support": 0.0,
+            "same_section": 0.0,
+            "section_confidence": 0.0,
+            "ownership_chain_score": 0.0,
+            "table_structure_penalty": 0.0,
         }
 
     line_bounds = _line_bounds(field_line)
@@ -975,6 +1063,10 @@ def relationship_features_for(label_item, field_line, layout_structure):
         "structural_band_support": round(structure_context["structural_band_support"], 4),
         "label_zone_support": round(structure_context["label_zone_support"], 4),
         "field_zone_support": round(structure_context["field_zone_support"], 4),
+        "same_section": round(structure_context["same_section"], 4),
+        "section_confidence": round(structure_context["section_confidence"], 4),
+        "ownership_chain_score": round(structure_context["ownership_chain_score"], 4),
+        "table_structure_penalty": round(structure_context["table_structure_penalty"], 4),
         "label_zone": structure_context["label_zone"],
         "field_zone": structure_context["field_zone"],
         "label_band": structure_context["label_band"],

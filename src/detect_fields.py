@@ -140,6 +140,44 @@ def _avg_ocr_width(ocr_data, default: float = 72.0):
     return float(np.median(widths))
 
 
+def build_field_filter_thresholds(image_path: str, ocr_data, lines=None):
+    """Build page-relative thresholds while keeping fixed legacy values as rollback context."""
+    img = cv2.imread(image_path)
+    if img is None:
+        raise RuntimeError(f"Failed to read image: {image_path}")
+
+    image_height, image_width = img.shape[:2]
+    avg_text_height = _avg_ocr_height(ocr_data)
+    line_lengths = [line_length(line) for line in lines or [] if is_horizontal(line)]
+    median_line_length = float(np.median(line_lengths)) if line_lengths else 0.0
+
+    min_length = int(round(max(70.0, image_width * 0.07, median_line_length * 0.18)))
+    x_threshold = int(round(max(160.0, image_width * 0.22)))
+    max_vertical_distance = int(round(max(30.0, avg_text_height * 1.4, image_height * 0.012)))
+
+    return {
+        "min_length": min_length,
+        "x_threshold": x_threshold,
+        "max_vertical_distance": max_vertical_distance,
+        "diagnostics": {
+            "image_width": int(image_width),
+            "image_height": int(image_height),
+            "avg_text_height": round(avg_text_height, 2),
+            "median_candidate_line_length": round(median_line_length, 2),
+            "legacy_fixed_thresholds": {
+                "min_length": 100,
+                "x_threshold": 300,
+                "max_vertical_distance": 30,
+            },
+            "page_relative_thresholds": {
+                "min_length": min_length,
+                "x_threshold": x_threshold,
+                "max_vertical_distance": max_vertical_distance,
+            },
+        },
+    }
+
+
 def _count_ocr_inside_region(region, ocr_data, padding: float = 4.0):
     count = 0
     for item in ocr_data:
@@ -587,6 +625,27 @@ def detect_table_regions(image_path: str):
         })
 
     return regions
+
+
+def table_regions_to_semantic_regions(table_regions):
+    semantic_regions = []
+    for index, region in enumerate(table_regions or []):
+        semantic_regions.append(
+            {
+                "x": int(region["x"]),
+                "y": int(region["y"]),
+                "width": int(region["width"]),
+                "height": int(region["height"]),
+                "type": "table_like_region",
+                "confidence": 0.88,
+                "reasons": ["dense_intersecting_horizontal_vertical_rules"],
+                "relationship_features": {
+                    "source": "image_table_detector",
+                    "region_index": index,
+                },
+            }
+        )
+    return semantic_regions
 
 
 def filter_lines_outside_table_regions(lines, table_regions):
