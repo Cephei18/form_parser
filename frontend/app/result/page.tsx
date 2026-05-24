@@ -7,6 +7,7 @@ import { FilePreview } from "@/components/file-preview";
 import { MappingOverlay } from "@/components/mapping-overlay";
 import { PageCard } from "@/components/page-card";
 import { StatusAlert } from "@/components/status-alert";
+import { mappingJsonUrlFromPreview, normalizeBackendFileUrl } from "@/lib/api";
 import type { ResultPayload, UploadSessionData } from "@/lib/types";
 
 const SESSION_KEY = "form-parser:last-upload";
@@ -19,8 +20,24 @@ type RawMapping = {
   field_lines?: Array<{ start: [number, number]; end: [number, number]; field_type?: string }>;
 };
 
-function mappingJsonUrl(mappingPreview: string): string {
-  return mappingPreview.replace(/mapping\.png(?:\?.*)?$/i, "mappings.json");
+function looksLikeMappingArray(raw: unknown): raw is RawMapping[] {
+  return (
+    Array.isArray(raw) &&
+    raw.every(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        ("field_bboxes" in item || "field_lines" in item || "label" in item)
+    )
+  );
+}
+
+function looksLikeResultPayload(raw: unknown): raw is ResultPayload {
+  return (
+    !!raw &&
+    typeof raw === "object" &&
+    Array.isArray((raw as ResultPayload).mappings)
+  );
 }
 
 function normalizeMappings(raw: RawMapping[]) {
@@ -59,12 +76,22 @@ function ResultContent() {
   const [resultData, setResultData] = useState<ResultPayload | null>(null);
   const [resultError, setResultError] = useState("");
 
-  const pdfUrl = useMemo(() => searchParams.get("pdf_url") ?? "", [searchParams]);
-  const resultUrl = useMemo(() => searchParams.get("result_url") ?? "", [searchParams]);
+  const pdfUrl = useMemo(
+    () => normalizeBackendFileUrl(searchParams.get("pdf_url")),
+    [searchParams]
+  );
+  const resultUrl = useMemo(
+    () => normalizeBackendFileUrl(searchParams.get("result_url")),
+    [searchParams]
+  );
   const mappingCount = useMemo(() => searchParams.get("mapping_count") ?? "", [searchParams]);
   const mappingPreview = useMemo(
-    () => searchParams.get("mapping_preview") ?? "",
+    () => normalizeBackendFileUrl(searchParams.get("mapping_preview")),
     [searchParams]
+  );
+  const mappingsUrl = useMemo(
+    () => mappingJsonUrlFromPreview(mappingPreview),
+    [mappingPreview]
   );
 
   useEffect(() => {
@@ -82,8 +109,7 @@ function ResultContent() {
   }, []);
 
   useEffect(() => {
-    const fallbackMappingsUrl = mappingPreview ? mappingJsonUrl(mappingPreview) : "";
-    const sourceUrl = resultUrl || fallbackMappingsUrl;
+    const sourceUrl = mappingsUrl || resultUrl;
     if (!sourceUrl) {
       return;
     }
@@ -98,7 +124,7 @@ function ResultContent() {
       })
       .then((data) => {
         if (isMounted) {
-          if (Array.isArray(data)) {
+          if (looksLikeMappingArray(data)) {
             const mappings = normalizeMappings(data);
             setResultData({
               status: "success",
@@ -113,8 +139,12 @@ function ResultContent() {
                 multi_line_count: mappings.filter((item) => item.field_type === "multi_line").length
               }
             });
-          } else {
+          } else if (looksLikeResultPayload(data)) {
             setResultData(data);
+          } else if (sourceUrl === resultUrl && mappingsUrl) {
+            setResultError("");
+          } else {
+            setResultError("Mapping details are unavailable for this result.");
           }
         }
       })
@@ -127,7 +157,7 @@ function ResultContent() {
     return () => {
       isMounted = false;
     };
-  }, [mappingPreview, resultUrl, uploadData?.mode]);
+  }, [mappingsUrl, resultUrl, uploadData?.mode]);
 
   if (!pdfUrl) {
     return (

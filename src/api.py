@@ -2,13 +2,14 @@ import gc
 import logging
 import os
 import shutil
+import time
 import uuid
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 from src.main import resolve_uploaded_input, run_pipeline
 from src.ocr import OCRRuntimeError
@@ -24,6 +25,14 @@ RUNS_ROOT.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".pdf"}
 ALLOWED_MODES = {"rule", "ml"}
+SERVABLE_FILENAMES = {
+    "output.pdf",
+    "mapping.png",
+    "mappings.json",
+    "result.json",
+}
+BLOCKED_FILE_PATH_PARTS = {"uploads", "easyocr-models"}
+READ_CHUNK_SIZE = 1024 * 1024
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -39,6 +48,142 @@ def _parse_origins(value: str | None) -> list[str]:
         return []
 
     return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
+def _int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("[api] invalid integer env %s=%r; using %s", name, value, default)
+        return default
+
+
+MAX_UPLOAD_SIZE_MB = max(1, _int_env("FORM_PARSER_MAX_UPLOAD_SIZE_MB", 20))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+RUN_RETENTION_DAYS = max(0, _int_env("FORM_PARSER_RUN_RETENTION_DAYS", 7))
+MAX_RUN_DIRS = max(0, _int_env("FORM_PARSER_MAX_RUN_DIRS", 200))
+
+
+async def _read_upload_limited(file: UploadFile) -> bytes:
+    chunks: list[bytes] = []
+    total_size = 0
+
+    while True:
+        chunk = await file.read(READ_CHUNK_SIZE)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded file must be smaller than {MAX_UPLOAD_SIZE_MB}MB.",
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
+
+def _sniff_upload_type(contents: bytes) -> str | None:
+    if contents.startswith(b"%PDF-"):
+        return ".pdf"
+    if contents.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if contents.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    return None
+
+
+def _verify_image_bytes(contents: bytes) -> None:
+    try:
+        from PIL import Image
+
+        with Image.open(BytesIO(contents)) as image:
+            image.verify()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.info("[api] uploaded image failed validation: %s", exc)
+        raise HTTPException(status_code=400, detail="Uploaded image could not be decoded.") from exc
+
+
+def _validate_upload_content(extension: str, contents: bytes) -> None:
+    detected_extension = _sniff_upload_type(contents)
+    normalized_extension = ".jpg" if extension == ".jpeg" else extension
+
+    if detected_extension is None:
+        raise HTTPException(status_code=400, detail="Uploaded file content is not a supported PDF, PNG, or JPEG.")
+
+    if normalized_extension == ".jpeg":
+        normalized_extension = ".jpg"
+
+    if detected_extension != normalized_extension:
+        raise HTTPException(status_code=400, detail="Uploaded file extension does not match its content.")
+
+    if normalized_extension in {".png", ".jpg"}:
+        _verify_image_bytes(contents)
+
+
+def _safe_remove_dir(path: Path) -> None:
+    try:
+        resolved = path.resolve()
+        runs_root = RUNS_ROOT.resolve()
+        if runs_root == resolved or runs_root not in resolved.parents:
+            logger.warning("[api] skip cleanup outside runs root: %s", path)
+            return
+        shutil.rmtree(resolved, ignore_errors=True)
+    except Exception:
+        logger.warning("[api] failed to remove run directory: %s", path, exc_info=True)
+
+
+def _cleanup_old_run_dirs(current_run_id: str | None = None) -> None:
+    if not RUNS_ROOT.exists():
+        return
+
+    run_dirs = [path for path in RUNS_ROOT.iterdir() if path.is_dir()]
+    now = time.time()
+    retention_seconds = RUN_RETENTION_DAYS * 24 * 60 * 60
+
+    if retention_seconds > 0:
+        for run_dir in run_dirs:
+            if current_run_id and run_dir.name == current_run_id:
+                continue
+            try:
+                if now - run_dir.stat().st_mtime > retention_seconds:
+                    _safe_remove_dir(run_dir)
+            except Exception:
+                logger.warning("[api] failed to inspect run directory: %s", run_dir, exc_info=True)
+
+    if MAX_RUN_DIRS <= 0:
+        return
+
+    remaining = [path for path in RUNS_ROOT.iterdir() if path.is_dir()]
+    overflow = len(remaining) - MAX_RUN_DIRS
+    if overflow <= 0:
+        return
+
+    for run_dir in sorted(remaining, key=lambda path: path.stat().st_mtime)[:overflow]:
+        if current_run_id and run_dir.name == current_run_id:
+            continue
+        _safe_remove_dir(run_dir)
+
+
+def _resolve_served_file(file_path: str) -> Path:
+    requested_path = (OUTPUT_ROOT / file_path).resolve()
+    output_root = OUTPUT_ROOT.resolve()
+
+    if output_root != requested_path and output_root not in requested_path.parents:
+        raise HTTPException(status_code=404, detail="File not found.")
+    if any(part in BLOCKED_FILE_PATH_PARTS for part in requested_path.relative_to(output_root).parts):
+        raise HTTPException(status_code=404, detail="File not found.")
+    if requested_path.name not in SERVABLE_FILENAMES:
+        raise HTTPException(status_code=404, detail="File not found.")
+    if not requested_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    return requested_path
 
 
 DEFAULT_CORS_ORIGINS = [
@@ -61,15 +206,27 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event() -> None:
     logger.info(
-        "[api] startup project_root=%s output_root=%s upload_root=%s runs_root=%s cors_origins=%s",
+        "[api] startup project_root=%s output_root=%s upload_root=%s runs_root=%s max_upload_mb=%s cors_origins=%s",
         PROJECT_ROOT,
         OUTPUT_ROOT,
         UPLOAD_ROOT,
         RUNS_ROOT,
+        MAX_UPLOAD_SIZE_MB,
         cors_origins or "<disabled>",
     )
+    _cleanup_old_run_dirs()
 
-app.mount("/files", StaticFiles(directory=str(OUTPUT_ROOT)), name="files")
+
+@app.get("/files/{file_path:path}")
+def get_generated_file(file_path: str) -> FileResponse:
+    requested_path = _resolve_served_file(file_path)
+    return FileResponse(
+        requested_path,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.exception_handler(HTTPException)
@@ -142,6 +299,7 @@ def _stats(output: dict) -> dict:
     confidence_classes: dict[str, int] = {}
     scores = []
     multiline_count = 0
+    checkbox_count = 0
     for mapping in mappings:
         confidence_class = mapping.get("confidence_class", "unknown")
         confidence_classes[confidence_class] = confidence_classes.get(confidence_class, 0) + 1
@@ -149,12 +307,16 @@ def _stats(output: dict) -> dict:
             scores.append(float(mapping["candidate_score"]))
         if int(mapping.get("multiline_group_size", 1)) > 1:
             multiline_count += 1
+        if mapping.get("field_type") == "checkbox":
+            checkbox_count += 1
 
     return {
         "mapping_count": len(mappings),
         "line_count": int(output.get("lines_count", 0)),
         "field_candidate_count": int(output.get("filtered_lines_count", 0)),
         "multiline_count": multiline_count,
+        "multi_line_count": multiline_count,
+        "checkbox_count": checkbox_count,
         "average_candidate_score": round(sum(scores) / len(scores), 4) if scores else 0,
         "confidence_classes": confidence_classes,
     }
@@ -165,18 +327,20 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing uploaded filename.")
 
-    contents = await file.read()
+    extension = Path(file.filename).suffix.lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Only PNG, JPG, JPEG, and PDF are supported.")
+    if mode not in ALLOWED_MODES:
+        raise HTTPException(status_code=400, detail="Mode must be either 'rule' or 'ml'.")
+
+    contents = await _read_upload_limited(file)
     uploaded_size = len(contents)
     logger.info("[api] upload received filename=%s size=%s mode=%s", file.filename, uploaded_size, mode)
 
     if uploaded_size <= 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    extension = Path(file.filename).suffix.lower()
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Only PNG, JPG, JPEG, and PDF are supported.")
-    if mode not in ALLOWED_MODES:
-        raise HTTPException(status_code=400, detail="Mode must be either 'rule' or 'ml'.")
+    _validate_upload_content(extension, contents)
 
     run_id = uuid.uuid4().hex
     upload_path = UPLOAD_ROOT / f"{run_id}{extension}"
@@ -205,13 +369,20 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
         ) from exc
     except Exception as exc:
         logger.exception("[api] processing failed run_id=%s: %s", run_id, exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "processing_failed",
+                "message": "Form processing failed. Please try another document or retry later.",
+            },
+        ) from exc
     finally:
         file.file.close()
         try:
             upload_path.unlink(missing_ok=True)
         except Exception:
             logger.warning("[api] failed to remove temp upload: %s", upload_path)
+        _cleanup_old_run_dirs(current_run_id=run_id)
         gc.collect()
 
     pdf_rel = output["pdf_output_path"].relative_to(OUTPUT_ROOT).as_posix()

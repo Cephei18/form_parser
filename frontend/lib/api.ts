@@ -1,7 +1,7 @@
 import { API_BASE_URL } from "@/lib/constants";
 import type { ProcessingMode, ProcessFormResponse } from "@/lib/types";
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const baseUrl = API_BASE_URL.trim();
   if (baseUrl) {
     return baseUrl.replace(/\/$/, "");
@@ -19,18 +19,62 @@ function getApiBaseUrl(): string {
   throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
 }
 
+export function normalizeBackendFileUrl(url: string | null | undefined): string {
+  const rawUrl = (url ?? "").trim();
+  if (!rawUrl) {
+    return "";
+  }
+
+  const apiBaseUrl = getApiBaseUrl();
+
+  let apiOrigin: string;
+  let parsedUrl: URL;
+  try {
+    apiOrigin = new URL(apiBaseUrl).origin;
+    parsedUrl = new URL(rawUrl, apiBaseUrl);
+  } catch {
+    return "";
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return "";
+  }
+
+  if (parsedUrl.origin !== apiOrigin) {
+    return "";
+  }
+
+  if (!parsedUrl.pathname.startsWith("/files/")) {
+    return "";
+  }
+
+  parsedUrl.hash = "";
+  return parsedUrl.toString();
+}
+
+export function mappingJsonUrlFromPreview(mappingPreview: string | null | undefined): string {
+  const safePreviewUrl = normalizeBackendFileUrl(mappingPreview);
+  if (!safePreviewUrl) {
+    return "";
+  }
+
+  const parsedUrl = new URL(safePreviewUrl);
+  if (!/\/mapping\.png$/i.test(parsedUrl.pathname)) {
+    return "";
+  }
+
+  parsedUrl.pathname = parsedUrl.pathname.replace(/\/mapping\.png$/i, "/mappings.json");
+  parsedUrl.search = "";
+  return parsedUrl.toString();
+}
+
 function toAbsoluteUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) {
-    return url;
+  const safeUrl = normalizeBackendFileUrl(url);
+  if (!safeUrl) {
+    throw new Error("Response contained an unsafe file URL.");
   }
 
-  const baseUrl = API_BASE_URL.trim();
-
-  if (url.startsWith("/")) {
-    return baseUrl ? `${baseUrl.replace(/\/$/, "")}${url}` : url;
-  }
-
-  return baseUrl ? `${baseUrl.replace(/\/$/, "")}/${url}` : url;
+  return safeUrl;
 }
 
 export async function processForm(file: File, mode: ProcessingMode): Promise<ProcessFormResponse> {

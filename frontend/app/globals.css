@@ -17,3 +17,21 @@ body {
 a {
   @apply text-brand underline-offset-2 hover:underline;
 }
+
+@keyframes soft-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.soft-shimmer::after {
+  animation: soft-shimmer 1.45s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.12), transparent);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}

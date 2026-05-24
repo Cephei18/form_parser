@@ -12,7 +12,50 @@ import { fileToDataUrl, validateFile } from "@/lib/file";
 import type { ProcessingMode, UploadSessionData } from "@/lib/types";
 
 const SESSION_KEY = "form-parser:last-upload";
-const STAGES = ["Reading document", "Understanding layout", "Detecting fields", "Generating PDF"];
+const PROGRESS_CAP_BEFORE_COMPLETE = 88;
+const COMPLETION_PAUSE_MS = 450;
+const STAGES = [
+  {
+    label: "Reading document",
+    detail: "Preparing the upload and OCR workspace.",
+    threshold: 0
+  },
+  {
+    label: "Understanding layout",
+    detail: "Finding text rows, sections, and form structure.",
+    threshold: 18
+  },
+  {
+    label: "Detecting fields",
+    detail: "Locating lines, boxes, and checkbox candidates.",
+    threshold: 36
+  },
+  {
+    label: "Applying mappings",
+    detail: "Matching labels to the most likely fields.",
+    threshold: 56
+  },
+  {
+    label: "Finalizing interactive PDF",
+    detail: "Building fillable controls and preview artifacts.",
+    threshold: 74
+  },
+  {
+    label: "Preparing download",
+    detail: "Waiting for the backend to finish and return links.",
+    threshold: 90
+  }
+];
+
+function stageIndexForProgress(progress: number): number {
+  let index = 0;
+  for (let i = 0; i < STAGES.length; i += 1) {
+    if (progress >= STAGES[i].threshold) {
+      index = i;
+    }
+  }
+  return index;
+}
 
 export default function UploadPage() {
   const router = useRouter();
@@ -23,6 +66,7 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [mode, setMode] = useState<ProcessingMode>("rule");
   const [activeStage, setActiveStage] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   const previewMimeType = useMemo(() => selectedFile?.type ?? "", [selectedFile]);
 
@@ -59,15 +103,29 @@ export default function UploadPage() {
     let stageTimer: number | undefined;
     try {
       setIsProcessing(true);
+      setProgress(6);
       setActiveStage(0);
       setError("");
       setSuccess("");
 
       stageTimer = window.setInterval(() => {
-        setActiveStage((stage) => Math.min(stage + 1, STAGES.length - 1));
-      }, 900);
+        setProgress((currentProgress) => {
+          const remaining = PROGRESS_CAP_BEFORE_COMPLETE - currentProgress;
+          const nextProgress = Math.min(
+            PROGRESS_CAP_BEFORE_COMPLETE,
+            currentProgress + Math.max(1.2, remaining * 0.08)
+          );
+          setActiveStage(stageIndexForProgress(nextProgress));
+          return nextProgress;
+        });
+      }, 420);
 
       const result = await processForm(selectedFile, mode);
+      if (stageTimer !== undefined) {
+        window.clearInterval(stageTimer);
+        stageTimer = undefined;
+      }
+      setProgress(100);
       setActiveStage(STAGES.length - 1);
 
       const uploadSession: UploadSessionData = {
@@ -75,7 +133,7 @@ export default function UploadPage() {
         originalMimeType: selectedFile.type,
         originalFileName: selectedFile.name,
         mode,
-        stages: STAGES
+        stages: STAGES.map((stage) => stage.label)
       };
 
       window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(uploadSession));
@@ -94,6 +152,7 @@ export default function UploadPage() {
         params.set("mapping_count", String(result.stats.mapping_count));
       }
 
+      await new Promise((resolve) => window.setTimeout(resolve, COMPLETION_PAUSE_MS));
       router.push(`/result?${params.toString()}`);
     } catch (unknownError) {
       const message =
@@ -105,6 +164,7 @@ export default function UploadPage() {
       if (stageTimer !== undefined) {
         window.clearInterval(stageTimer);
       }
+      setProgress(0);
       setIsProcessing(false);
     }
   }, [mode, previewSource, router, selectedFile]);
@@ -177,23 +237,41 @@ export default function UploadPage() {
 
           {isProcessing ? (
             <div className="rounded-3xl border border-brand/20 bg-brand/5 p-4">
-              <div className="mb-4 h-2 overflow-hidden rounded-full bg-white">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{STAGES[activeStage].label}...</p>
+                  <p className="mt-1 text-xs text-slate-600">{STAGES[activeStage].detail}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand shadow-sm">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+              <div
+                className="mb-4 h-2 overflow-hidden rounded-full bg-white"
+                role="progressbar"
+                aria-label="Document processing progress"
+                aria-valuenow={Math.round(progress)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
                 <div
-                  className="h-full rounded-full bg-brand transition-all duration-500"
-                  style={{ width: `${((activeStage + 1) / STAGES.length) * 100}%` }}
+                  className="h-full rounded-full bg-brand transition-all duration-700 ease-out"
+                  style={{ width: `${progress}%` }}
                 />
               </div>
-              <div className="grid gap-2 sm:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {STAGES.map((stage, index) => (
                   <div
-                    key={stage}
-                    className={`rounded-2xl border px-3 py-3 text-sm font-semibold ${
-                      index <= activeStage
-                        ? "border-brand/30 bg-white text-brand shadow-sm"
-                        : "border-edge bg-white text-slate-500"
+                    key={stage.label}
+                    className={`relative overflow-hidden rounded-2xl border px-3 py-3 text-sm font-semibold transition ${
+                      index === activeStage
+                        ? "soft-shimmer border-brand/30 bg-white text-brand shadow-sm"
+                        : index < activeStage
+                          ? "border-brand/20 bg-white/90 text-brand"
+                          : "border-edge bg-white text-slate-500"
                     }`}
                   >
-                    {stage}
+                    {stage.label}
                   </div>
                 ))}
               </div>

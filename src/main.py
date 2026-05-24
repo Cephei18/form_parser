@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 import uuid
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -32,15 +33,44 @@ def _write_json(path: Path, payload: Any, label: str) -> None:
     _stage(f"{label} save end: {path} size={path.stat().st_size}")
 
 
+def _load_optional_module(module_name: str) -> Any:
+    return import_module(module_name)
+
+
+def _extract_ocr_payload(image_path: str) -> dict[str, Any]:
+    from src.ocr import extract_text_with_diagnostics
+
+    payload = extract_text_with_diagnostics(image_path)
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, list):
+        return {
+            "raw_items": payload,
+            "items": payload,
+            "diagnostics": {
+                "raw_item_count": len(payload),
+                "cleaned_item_count": len(payload),
+                "dropped_item_count": 0,
+                "merged_item_count": 0,
+                "source_items_merged": len(payload),
+                "raw_confidence_distribution": {"available": False},
+                "cleaned_confidence_distribution": {"available": False},
+                "text_cleanup_change_count": 0,
+                "text_cleanup_examples": [],
+            },
+        }
+    raise RuntimeError(f"OCR returned an unsupported payload type: {type(payload).__name__}")
+
+
 def convert_pdf_first_page(input_file: Path, output_path: Path) -> Path:
     _stage(f"PDF input conversion start: {input_file}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        from pdf2image import convert_from_path
+        pdf2image = _load_optional_module("pdf2image")
 
         _stage("pdf2image conversion start")
-        pages = convert_from_path(str(input_file), first_page=1, last_page=1)
+        pages = pdf2image.convert_from_path(str(input_file), first_page=1, last_page=1)
         if not pages:
             raise RuntimeError("PDF conversion produced no pages.")
         pages[0].save(output_path, "PNG")
@@ -49,7 +79,7 @@ def convert_pdf_first_page(input_file: Path, output_path: Path) -> Path:
     except Exception:
         logger.exception("[pipeline] pdf2image conversion failed; trying PyMuPDF fallback")
         try:
-            import fitz
+            fitz = _load_optional_module("fitz")
 
             _stage("PyMuPDF conversion start")
             doc = fitz.open(str(input_file))
@@ -132,7 +162,6 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     from src.mapping import draw_mapping, map_labels_to_fields
     from src.debug_visualize import create_debug_overlay
     from src.evaluation import evaluate_mapping_file
-    from src.ocr import extract_text_with_diagnostics
     from src.pipeline_compare import compare_pipeline_runs
     from src.pipeline_config import PipelineConfig
     from src.preprocessing import preprocess_image
@@ -155,7 +184,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     _stage(f"preprocessing end working_image={preprocessing_result.working_path}")
 
     _stage("OCR start")
-    ocr_payload = extract_text_with_diagnostics(image_path_str)
+    ocr_payload = _extract_ocr_payload(image_path_str)
     data = ocr_payload["items"]
     raw_ocr_data = ocr_payload["raw_items"]
     _stage(f"OCR end count={len(data or [])}")
@@ -433,17 +462,21 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         raise RuntimeError(f"mapping preview save failed or produced empty file: {mapping_image_path}")
     _stage(f"mapping preview save end: {mapping_image_path} size={mapping_image_path.stat().st_size}")
 
-    debug_reasoning_path = output_dir / "debug_reasoning.png"
-    _stage(f"debug overlay save start: {debug_reasoning_path}")
-    create_debug_overlay(
-        Path(__file__).resolve().parents[1],
-        debug_reasoning_path,
-        image_path=preprocessing_result.working_path,
-        artifact_dir=output_dir,
-    )
-    if not debug_reasoning_path.exists() or debug_reasoning_path.stat().st_size <= 0:
-        raise RuntimeError(f"debug overlay save failed or produced empty file: {debug_reasoning_path}")
-    _stage(f"debug overlay save end: {debug_reasoning_path} size={debug_reasoning_path.stat().st_size}")
+    debug_reasoning_path = None
+    if config.debug_artifacts_enabled:
+        debug_reasoning_path = output_dir / "debug_reasoning.png"
+        _stage(f"debug overlay save start: {debug_reasoning_path}")
+        create_debug_overlay(
+            Path(__file__).resolve().parents[1],
+            debug_reasoning_path,
+            image_path=preprocessing_result.working_path,
+            artifact_dir=output_dir,
+        )
+        if not debug_reasoning_path.exists() or debug_reasoning_path.stat().st_size <= 0:
+            raise RuntimeError(f"debug overlay save failed or produced empty file: {debug_reasoning_path}")
+        _stage(f"debug overlay save end: {debug_reasoning_path} size={debug_reasoning_path.stat().st_size}")
+    else:
+        _stage("debug overlay skipped: FORM_PARSER_DEBUG_ARTIFACTS_ENABLED=false")
 
     pdf_output_path = output_dir / "output.pdf"
     _stage(f"PDF generation start: {pdf_output_path}")
@@ -479,6 +512,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         "structural_refinement_path": structural_refinement_path,
         "diagnostics_path": diagnostics_path,
         "mapping_image_path": mapping_image_path,
+        "debug_reasoning_path": debug_reasoning_path,
         "pdf_output_path": pdf_output_path,
         "comparison_path": comparison_path,
         "lines_count": len(lines),
