@@ -48,3 +48,22 @@ frontend/.next/
 # Large/generated files
 output/
 uploads/
+
+# Experiment artifacts (raw API responses, annotated PDFs, outputs)
+/experiments/**/output/
+/experiments/**/*.raw.json
+/experiments/**/*.summary.json
+/experiments/**/*.textract_annotated.pdf
+
+# AWS and secret files (catch common accidental filenames)
+aws_credentials
+aws_credentials.json
+credentials.json
+secrets.json
+*.pem
+*.key
+*.crt
+*.p12
+.aws/
+.env.local
+*.secret
