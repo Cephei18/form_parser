@@ -48,6 +48,7 @@ frontend/.next/
 # Large/generated files
 output/
 uploads/
+/experiments/textract_eval/
 
 # Experiment artifacts (raw API responses, annotated PDFs, outputs)
 /experiments/**/output/
