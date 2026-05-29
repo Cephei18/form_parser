@@ -28,12 +28,14 @@ def run_pipeline(file_path: str | Path, output_dir: str | Path, reference_image_
     logger.info("[pipeline] Pipeline mode: %s", mode)
 
     if mode == "textract":
+        logger.info("ACTIVE PIPELINE: TEXTRACT")
         logger.info("[pipeline] Running Textract pipeline")
         return run_textract_pipeline(file_path, output_dir, reference_image_path=reference_image_path)
 
     if mode == "hybrid":
         logger.warning("[pipeline] Hybrid mode is reserved; falling back to OCR for now")
 
+    logger.info("ACTIVE PIPELINE: OCR")
     logger.info("[pipeline] Running OCR pipeline")
     return run_ocr_pipeline(file_path, output_dir)
 

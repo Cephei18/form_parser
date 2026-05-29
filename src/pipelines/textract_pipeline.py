@@ -198,6 +198,8 @@ def run_textract_pipeline(file_path: str | Path, output_dir: str | Path, referen
     image_path = Path(reference_image_path) if reference_image_path else source_path
 
     logger.info("[pipeline] Running Textract pipeline")
+    logger.info("[pipeline] ACTIVE PIPELINE: TEXTRACT")
+    started = cv2.getTickCount()
 
     if source_path.suffix.lower() == ".json":
         raw_response = load_json(source_path)
@@ -232,8 +234,19 @@ def run_textract_pipeline(file_path: str | Path, output_dir: str | Path, referen
     save_json(destination_dir / "mapping_diagnostics.json", diagnostics)
     save_json(destination_dir / "benchmark_summary.json", diagnostics)
 
+    elapsed_ms = ((cv2.getTickCount() - started) / cv2.getTickFrequency()) * 1000.0
+    logger.info(
+        "[pipeline] Textract pipeline completed in %.1fms tables=%s checkboxes=%s",
+        elapsed_ms,
+        len(parsed.get("tables", []) or []),
+        len(parsed.get("checkboxes", []) or []),
+    )
+
     return {
         "pipeline_mode": "textract",
+        "processing_time_ms": round(elapsed_ms, 2),
+        "tables_detected": len(parsed.get("tables", []) or []),
+        "checkboxes_detected": len(parsed.get("checkboxes", []) or []),
         "raw_response_path": raw_response_path,
         "parsed_response_path": destination_dir / "textract_parsed.json",
         "result_path": result_path,

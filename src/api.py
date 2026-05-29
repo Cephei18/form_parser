@@ -354,9 +354,17 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
         logger.info("[api] saving upload: %s", file.filename)
         upload_path.write_bytes(contents)
 
+        started = time.perf_counter()
         logger.info("[api] processing run_id=%s mode=%s", run_id, mode)
         source_image = resolve_uploaded_input(upload_path, run_output_dir)
         output = run_pipeline(source_image, run_output_dir)
+        elapsed_ms = round((time.perf_counter() - started) * 1000.0, 2)
+        logger.info(
+            "[api] run complete run_id=%s pipeline_mode=%s elapsed_ms=%.2f",
+            run_id,
+            output.get("pipeline_mode", "ocr"),
+            elapsed_ms,
+        )
     except HTTPException:
         raise
     except OCRRuntimeError as exc:
@@ -391,10 +399,23 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
     result_rel = output["result_path"].relative_to(OUTPUT_ROOT).as_posix()
     base_url = "/files"
 
+    pipeline_mode = str(output.get("pipeline_mode") or "ocr")
+    processing_time_ms = float(output.get("processing_time_ms") or elapsed_ms if "elapsed_ms" in locals() else 0.0)
+    tables_detected = int(output.get("tables_detected") or len(output.get("tables") or []))
+    checkboxes_detected = int(output.get("checkboxes_detected") or len(output.get("checkboxes") or []))
+
     return {
         "status": "success",
         "message": "Form processed successfully.",
         "mode": mode,
+        "pipeline_mode": pipeline_mode,
+        "processing_time_ms": processing_time_ms,
+        "response_metadata": {
+            "pipeline_mode": pipeline_mode,
+            "processing_time_ms": processing_time_ms,
+            "tables_detected": tables_detected,
+            "checkboxes_detected": checkboxes_detected,
+        },
         "pdf_url": f"{base_url}/{pdf_rel}",
         "mapping_preview": f"{base_url}/{map_rel}",
         "result_url": f"{base_url}/{result_rel}",

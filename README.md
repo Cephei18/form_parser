@@ -69,8 +69,39 @@ Successful `POST /process-form` responses include:
 - `mapping_preview`
 - `result_url`
 - `stats.mapping_count`
+- `pipeline_mode`
+- `processing_time_ms`
+- `response_metadata`
 
 Errors return a structured JSON response with `status`, `detail`, and `error`.
+
+## Local Textract frontend testing
+
+To run the Next.js frontend against the local backend, keep the API contract unchanged and switch the backend pipeline with an environment variable only.
+
+Backend:
+
+```bash
+$env:CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+$env:FORM_PARSER_PIPELINE_MODE="textract"
+uvicorn src.api:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+$env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
+npm run dev
+```
+
+When the backend is in Textract mode, logs should include:
+
+- `ACTIVE PIPELINE: TEXTRACT`
+- `Running Textract pipeline`
+- runtime metadata such as processing time and detected table/checkbox counts
+
+The frontend remains intelligence-agnostic and continues to use the same upload flow, result page, and file URLs.
 
 ## Phase 1 backend diagnostics
 
