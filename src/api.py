@@ -11,7 +11,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from src.main import resolve_uploaded_input, run_pipeline
+from src.main import resolve_uploaded_input
+from src.pipelines.pipeline_router import run_pipeline
 from src.ocr import OCRRuntimeError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

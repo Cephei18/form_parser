@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+
+logger = logging.getLogger(__name__)
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -38,6 +42,15 @@ def _path_env(name: str) -> Path | None:
     if not value:
         return None
     return Path(value)
+
+
+def _pipeline_mode_env(default: str = "ocr") -> str:
+    value = os.getenv("FORM_PARSER_PIPELINE_MODE", default)
+    mode = str(value or default).strip().lower()
+    if mode not in {"ocr", "textract", "hybrid"}:
+        logger.warning("[config] invalid FORM_PARSER_PIPELINE_MODE=%r; falling back to ocr", value)
+        return "ocr"
+    return mode
 
 
 @dataclass(frozen=True)
@@ -108,6 +121,7 @@ class PipelineConfig:
     checkbox_detection_enabled: bool = False
     debug_artifacts_enabled: bool = True
     baseline_dir: Path | None = None
+    pipeline_mode: str = "ocr"
 
     @classmethod
     def from_env(cls) -> "PipelineConfig":
@@ -121,6 +135,7 @@ class PipelineConfig:
             checkbox_detection_enabled=_bool_env("FORM_PARSER_CHECKBOX_DETECTION_ENABLED", False),
             debug_artifacts_enabled=_bool_env("FORM_PARSER_DEBUG_ARTIFACTS_ENABLED", True),
             baseline_dir=_path_env("FORM_PARSER_BASELINE_DIR"),
+            pipeline_mode=_pipeline_mode_env(),
         )
 
     def to_dict(self) -> dict[str, Any]:

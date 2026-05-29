@@ -528,7 +528,9 @@ def run_default_pipeline() -> dict[str, Any]:
     project_root = Path(__file__).resolve().parents[1]
     image_path = resolve_input_image(project_root)
     output_dir = project_root / "output"
-    output = run_pipeline(image_path, output_dir)
+    from src.pipelines.pipeline_router import run_pipeline as run_document_pipeline
+
+    output = run_document_pipeline(image_path, output_dir)
 
     print(f"Saved JSON: {output['result_path']}")
     print(f"Detected {output['lines_count']} lines")
