@@ -11,10 +11,12 @@ services:
       - "8000:8000"
 
     environment:
+      FORM_PARSER_ENV: production
       FORM_PARSER_OUTPUT_DIR: /app/output
       FORM_PARSER_UPLOAD_DIR: /app/output/uploads
       FORM_PARSER_RUNS_DIR: /app/output/runs
       FORM_PARSER_EASYOCR_MODEL_DIR: /app/output/easyocr-models
+      FORM_PARSER_DEBUG_ARTIFACTS_ENABLED: "false"
       # Production disables OCR model downloads so startup does not depend on
       # external network access. Pre-seed or preserve this directory on EC2.
       FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED: "false"

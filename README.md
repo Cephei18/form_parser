@@ -35,13 +35,18 @@ Environment variables:
 - `FORM_PARSER_OUTPUT_DIR` sets the root output directory.
 - `FORM_PARSER_UPLOAD_DIR` sets the temporary upload directory.
 - `FORM_PARSER_RUNS_DIR` sets the per-request run directory.
-- `CORS_ORIGINS` sets allowed frontend origins as a comma-separated list. Local dev is allowed by default for `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3001`, and `http://127.0.0.1:3001`.
+- `FORM_PARSER_ENV` sets runtime mode. Use `production` in deployed environments so CORS defaults are closed unless `CORS_ORIGINS` is explicitly set.
+- `CORS_ORIGINS` sets allowed frontend origins as a comma-separated list. Local dev is allowed by default only when `FORM_PARSER_ENV` is not `production`.
+- `FORM_PARSER_TRUSTED_HOSTS` optionally enables trusted host validation, for example `api.example.com,localhost`.
+- `FORM_PARSER_MAX_UPLOAD_SIZE_MB` sets the maximum accepted upload size, defaulting to `20`.
+- `FORM_PARSER_RUN_RETENTION_DAYS` and `FORM_PARSER_MAX_RUN_DIRS` control generated run cleanup.
 - `FORM_PARSER_OCR_LANGUAGES` sets EasyOCR languages as a comma-separated list, defaulting to `en`.
 - `FORM_PARSER_EASYOCR_MODEL_DIR` sets an optional model cache directory.
 - `FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED` controls whether EasyOCR may download missing models, defaulting to `true`.
 - `FORM_PARSER_OCR_THREADS` controls EasyOCR/PyTorch CPU threads, defaulting to `1`.
 - `FORM_PARSER_OCR_BATCH_SIZE` controls EasyOCR read batch size, defaulting to `1`.
 - `FORM_PARSER_OCR_DIAGNOSTICS_ENABLED` writes `ocr_raw.json` and `ocr_diagnostics.json`, defaulting to `true`.
+- `FORM_PARSER_DEBUG_ARTIFACTS_ENABLED` writes visual debug overlays and mapping diagnostics, defaulting to `false`.
 - `FORM_PARSER_PREPROCESSING_ENABLED` enables the optional preprocessing stage, defaulting to `false`.
 - `FORM_PARSER_PREPROCESS_DENOISE`, `FORM_PARSER_PREPROCESS_CONTRAST`, `FORM_PARSER_PREPROCESS_SHARPEN`, `FORM_PARSER_PREPROCESS_ADAPTIVE_THRESHOLD`, `FORM_PARSER_PREPROCESS_SKEW`, and `FORM_PARSER_PREPROCESS_DPI_NORMALIZE` control individual preprocessing steps.
 - `FORM_PARSER_DYNAMIC_THRESHOLDS_ENABLED` enables page-relative field filtering thresholds, defaulting to `false` for production-safe behavior.
@@ -74,6 +79,16 @@ Successful `POST /process-form` responses include:
 - `response_metadata`
 
 Errors return a structured JSON response with `status`, `detail`, and `error`.
+
+## Production checklist
+
+- Set `FORM_PARSER_ENV=production`.
+- Set `CORS_ORIGINS` to the exact deployed frontend origin.
+- Set `FORM_PARSER_TRUSTED_HOSTS` to the deployed API hostnames.
+- Keep `FORM_PARSER_DEBUG_ARTIFACTS_ENABLED=false` unless actively debugging a controlled run.
+- Persist output/model directories on explicit host volumes and configure retention cleanup.
+- Serve the API behind TLS and restrict direct access to generated output storage.
+- Review generated PDFs before official use; OCR and field detection are assistive, not authoritative.
 
 ## Local Textract frontend testing
 

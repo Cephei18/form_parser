@@ -119,7 +119,7 @@ class PipelineConfig:
     image_table_filtering_enabled: bool = False
     fallback_field_lines_enabled: bool = False
     checkbox_detection_enabled: bool = False
-    debug_artifacts_enabled: bool = True
+    debug_artifacts_enabled: bool = False
     baseline_dir: Path | None = None
     pipeline_mode: str = "ocr"
 
@@ -133,7 +133,7 @@ class PipelineConfig:
             image_table_filtering_enabled=_bool_env("FORM_PARSER_IMAGE_TABLE_FILTERING_ENABLED", False),
             fallback_field_lines_enabled=_bool_env("FORM_PARSER_FALLBACK_FIELD_LINES_ENABLED", False),
             checkbox_detection_enabled=_bool_env("FORM_PARSER_CHECKBOX_DETECTION_ENABLED", False),
-            debug_artifacts_enabled=_bool_env("FORM_PARSER_DEBUG_ARTIFACTS_ENABLED", True),
+            debug_artifacts_enabled=_bool_env("FORM_PARSER_DEBUG_ARTIFACTS_ENABLED", False),
             baseline_dir=_path_env("FORM_PARSER_BASELINE_DIR"),
             pipeline_mode=_pipeline_mode_env(),
         )

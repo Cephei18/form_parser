@@ -10,10 +10,12 @@ services:
     ports:
       - "8000:8000"
     environment:
+      FORM_PARSER_ENV: development
       FORM_PARSER_OUTPUT_DIR: /app/output
       FORM_PARSER_UPLOAD_DIR: /app/output/uploads
       FORM_PARSER_RUNS_DIR: /app/output/runs
       FORM_PARSER_EASYOCR_MODEL_DIR: /app/output/easyocr-models
+      FORM_PARSER_DEBUG_ARTIFACTS_ENABLED: "true"
       FORM_PARSER_OCR_THREADS: "1"
       CORS_ORIGINS: http://localhost:3000,http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
     volumes:

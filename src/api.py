@@ -1,6 +1,7 @@
 import gc
 import logging
 import os
+import re
 import shutil
 import time
 import uuid
@@ -10,6 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from src.main import resolve_uploaded_input
 from src.pipelines.pipeline_router import run_pipeline
@@ -25,6 +27,12 @@ UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 RUNS_ROOT.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".pdf"}
+ALLOWED_CONTENT_TYPES = {
+    ".pdf": {"application/pdf"},
+    ".png": {"image/png"},
+    ".jpg": {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+}
 ALLOWED_MODES = {"rule", "ml"}
 SERVABLE_FILENAMES = {
     "output.pdf",
@@ -34,6 +42,8 @@ SERVABLE_FILENAMES = {
 }
 BLOCKED_FILE_PATH_PARTS = {"uploads", "easyocr-models"}
 READ_CHUNK_SIZE = 1024 * 1024
+MAX_REQUEST_OVERHEAD_BYTES = 1024 * 1024
+SAFE_RANGE_HEADER = re.compile(r"^bytes=\d{0,20}-\d{0,20}$")
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -66,6 +76,21 @@ MAX_UPLOAD_SIZE_MB = max(1, _int_env("FORM_PARSER_MAX_UPLOAD_SIZE_MB", 20))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 RUN_RETENTION_DAYS = max(0, _int_env("FORM_PARSER_RUN_RETENTION_DAYS", 7))
 MAX_RUN_DIRS = max(0, _int_env("FORM_PARSER_MAX_RUN_DIRS", 200))
+MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + MAX_REQUEST_OVERHEAD_BYTES
+
+
+def _is_production() -> bool:
+    return os.getenv("FORM_PARSER_ENV", os.getenv("APP_ENV", "")).strip().lower() in {"prod", "production"}
+
+
+def _validate_upload_metadata(file: UploadFile, extension: str) -> None:
+    content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    allowed_content_types = ALLOWED_CONTENT_TYPES.get(extension, set())
+
+    if not content_type:
+        raise HTTPException(status_code=400, detail="Uploaded file type could not be verified.")
+    if content_type not in allowed_content_types:
+        raise HTTPException(status_code=400, detail="Uploaded file type does not match its extension.")
 
 
 async def _read_upload_limited(file: UploadFile) -> bytes:
@@ -110,6 +135,11 @@ def _verify_image_bytes(contents: bytes) -> None:
         raise HTTPException(status_code=400, detail="Uploaded image could not be decoded.") from exc
 
 
+def _verify_pdf_bytes(contents: bytes) -> None:
+    if b"%%EOF" not in contents[-1024 * 1024 :]:
+        raise HTTPException(status_code=400, detail="Uploaded PDF appears incomplete or malformed.")
+
+
 def _validate_upload_content(extension: str, contents: bytes) -> None:
     detected_extension = _sniff_upload_type(contents)
     normalized_extension = ".jpg" if extension == ".jpeg" else extension
@@ -125,6 +155,8 @@ def _validate_upload_content(extension: str, contents: bytes) -> None:
 
     if normalized_extension in {".png", ".jpg"}:
         _verify_image_bytes(contents)
+    if normalized_extension == ".pdf":
+        _verify_pdf_bytes(contents)
 
 
 def _safe_remove_dir(path: Path) -> None:
@@ -187,8 +219,7 @@ def _resolve_served_file(file_path: str) -> Path:
     return requested_path
 
 
-DEFAULT_CORS_ORIGINS = [
-    "http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com",
+DEV_CORS_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
@@ -197,14 +228,19 @@ DEFAULT_CORS_ORIGINS = [
 
 app = FastAPI(title="Form Parser API", version="1.0.0")
 
-cors_origins = list(dict.fromkeys(DEFAULT_CORS_ORIGINS + _parse_origins(os.getenv("CORS_ORIGINS"))))
+trusted_hosts = _parse_origins(os.getenv("FORM_PARSER_TRUSTED_HOSTS"))
+if trusted_hosts:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
+
+default_cors_origins = [] if _is_production() else DEV_CORS_ORIGINS
+cors_origins = list(dict.fromkeys(default_cors_origins + _parse_origins(os.getenv("CORS_ORIGINS"))))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type", "Origin"],
 )
 
 
@@ -284,6 +320,23 @@ def root() -> dict[str, str]:
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     logger.info("[api] request start method=%s path=%s", request.method, request.url.path)
+
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_REQUEST_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"status": "error", "message": f"Request body must be smaller than {MAX_UPLOAD_SIZE_MB}MB."},
+                )
+        except ValueError:
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid Content-Length header."})
+
+    range_header = request.headers.get("range")
+    if request.url.path.startswith("/files/") and range_header:
+        if len(range_header) > 64 or "," in range_header or not SAFE_RANGE_HEADER.fullmatch(range_header.strip()):
+            return JSONResponse(status_code=416, content={"status": "error", "message": "Unsupported Range header."})
+
     try:
         response = await call_next(request)
     except Exception:
@@ -296,6 +349,9 @@ async def request_logging_middleware(request: Request, call_next):
         request.url.path,
         response.status_code,
     )
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-Frame-Options", "DENY")
     return response
 
 
@@ -337,6 +393,7 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
         raise HTTPException(status_code=400, detail="Only PNG, JPG, JPEG, and PDF are supported.")
     if mode not in ALLOWED_MODES:
         raise HTTPException(status_code=400, detail="Mode must be either 'rule' or 'ml'.")
+    _validate_upload_metadata(file, extension)
 
     contents = await _read_upload_limited(file)
     uploaded_size = len(contents)

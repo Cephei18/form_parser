@@ -25,6 +25,7 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .pyre/
+*.tsbuildinfo
 
 # Logs
 *.log
@@ -44,10 +45,18 @@ Thumbs.db
 # Frontend generated artifacts
 frontend/node_modules/
 frontend/.next/
+frontend/out/
 
 # Large/generated files
 output/
 uploads/
+tmp/
+temp/
+input/*.pdf
+input/*.png
+input/*.jpg
+input/*.jpeg
+response.json
 /experiments/textract_eval/
 
 # Experiment artifacts (raw API responses, annotated PDFs, outputs)

@@ -24,7 +24,7 @@ easyocr==1.7.2
 et_xmlfile==2.0.0
 filelock==3.25.2
 fire==0.7.1
-fastapi==0.116.1
+fastapi==0.136.3
 Flask==3.1.3
 flask-babel==4.0.0
 fonttools==4.62.1
@@ -35,16 +35,15 @@ hf-xet==1.4.3
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.10.1
-idna==3.11
+idna==3.15
 ImageIO==2.37.3
 imagesize==2.0.0
-imgaug==0.4.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 kiwisolver==1.5.0
 lazy-loader==0.5
 lmdb==2.2.0
-lxml==6.0.3
+lxml==6.1.0
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 matplotlib==3.10.8
@@ -53,7 +52,7 @@ more-itertools==11.0.2
 networkx==3.6.1
 ninja==1.13.0
 numpy==1.26.4
-opencv-python-headless==4.6.0.66
+opencv-python-headless==4.8.1.78
 openpyxl==3.1.5
 opt-einsum==3.3.0
 packaging==26.0
@@ -63,7 +62,7 @@ pdf2image==1.17.0
 pillow==12.2.0
 premailer==3.10.0
 prettytable==3.17.0
-protobuf==3.20.2
+protobuf==5.29.6
 psutil==7.2.2
 py-cpuinfo==9.0.0
 pyclipper==1.4.0
@@ -77,7 +76,7 @@ pypdfium2==5.7.0
 python-bidi==0.6.7
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
-python-multipart==0.0.20
+python-multipart==0.0.30
 pytz==2026.1.post1
 PyYAML==6.0.2
 RapidFuzz==3.14.5
@@ -93,6 +92,7 @@ shapely==2.1.2
 shellingham==1.5.4
 six==1.17.0
 soupsieve==2.8.3
+starlette==1.0.1
 termcolor==3.3.0
 tifffile==2026.3.3
 torch==2.11.0
@@ -102,8 +102,8 @@ typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.1
-ujson==5.12.0
-urllib3==2.6.3
+ujson==5.12.1
+urllib3==2.7.0
 uvicorn==0.35.0
 wcwidth==0.6.0
 Werkzeug==3.1.8
