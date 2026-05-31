@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from reportlab.lib.colors import Color
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -16,6 +17,12 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 logger.propagate = False
+
+
+TRANSPARENT_FILL = Color(1, 1, 1, alpha=0)
+FIELD_BORDER = Color(0.66, 0.69, 0.72)
+CHECKBOX_BORDER = Color(0.35, 0.37, 0.39)
+FIELD_TEXT = Color(0.08, 0.08, 0.08)
 
 
 def _safe_field_name(label: str, index: int) -> str:
@@ -101,6 +108,150 @@ def _safe_page(mapping) -> int:
         return max(1, int(mapping.get("page") or 1))
     except (TypeError, ValueError):
         return 1
+
+
+def _clean_label_text(value) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def _normalized_label_text(value) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", _clean_label_text(value).lower()).strip()
+
+
+def _looks_like_photo_instruction(label: str) -> bool:
+    text = _normalized_label_text(label)
+    if not text:
+        return False
+    if text in {"photo", "photograph", "passport size photograph"}:
+        return True
+    if "photograph" in text:
+        return True
+    if "passport size" in text and ("photo" in text or "photograph" in text or "affix" in text):
+        return True
+    if "affix" in text and ("photo" in text or "photograph" in text or "passport" in text):
+        return True
+    return False
+
+
+def _answer_anchor_type(mapping, box=None) -> str:
+    answer_region = mapping.get("answer_region") if isinstance(mapping, dict) else None
+    anchoring = mapping.get("anchoring") if isinstance(mapping, dict) else None
+    for value in (
+        (box or {}).get("anchor_type") if isinstance(box, dict) else None,
+        (answer_region or {}).get("type") if isinstance(answer_region, dict) else None,
+        (anchoring or {}).get("anchor_type") if isinstance(anchoring, dict) else None,
+    ):
+        if value:
+            return str(value)
+    return ""
+
+
+def _field_type(mapping, box=None) -> str:
+    for value in (
+        (box or {}).get("field_type") if isinstance(box, dict) else None,
+        mapping.get("field_type") if isinstance(mapping, dict) else None,
+    ):
+        if value:
+            return str(value).lower()
+    return "text"
+
+
+def _is_non_fillable_region(mapping, box=None) -> bool:
+    field_type = _field_type(mapping, box)
+    anchor_type = _answer_anchor_type(mapping, box)
+    label = mapping.get("label", "") if isinstance(mapping, dict) else ""
+    return (
+        field_type == "photo"
+        or anchor_type == "photo_region"
+        or _looks_like_photo_instruction(label)
+    )
+
+
+def _clamp(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(upper, value))
+
+
+def _multiline_line_count(mapping, height_field: float) -> int:
+    value = str(mapping.get("value") or "")
+    value_line_count = value.count("\n") + 1 if value.strip() else 0
+    continuation_count = 0
+    underline_count = 0
+    anchoring = mapping.get("anchoring") if isinstance(mapping, dict) else {}
+    for candidate in (anchoring or {}).get("top_candidates", []) or []:
+        if not isinstance(candidate, dict):
+            continue
+        if candidate.get("anchor_type") == "table_cell":
+            continuation_count = max(
+                continuation_count,
+                int(candidate.get("continuation_cell_count") or 0) + 1,
+            )
+        if candidate.get("anchor_type") == "underline":
+            underline_count += 1
+
+    try:
+        grouped_count = int(mapping.get("multiline_group_size") or 0)
+    except (TypeError, ValueError):
+        grouped_count = 0
+
+    if value_line_count > 1:
+        return max(2, min(value_line_count, 6))
+    if continuation_count:
+        return max(2, min(continuation_count, 5))
+    if underline_count >= 2:
+        return max(2, min(underline_count, 5))
+    if grouped_count:
+        return max(2, min(grouped_count, 4))
+    return max(2, min(int(round(height_field / 14.0)), 4))
+
+
+def _text_widget_rect(mapping, box, pdf_x: float, pdf_y: float, width: float, height_field: float):
+    field_type = _field_type(mapping, box)
+    anchor_type = _answer_anchor_type(mapping, box)
+    width = max(10.0, width)
+    height_field = max(8.0, height_field)
+    x_pad = 1.25
+    widget_x = pdf_x + x_pad
+    widget_width = max(10.0, width - x_pad * 2.0)
+
+    if field_type == "multiline":
+        line_count = _multiline_line_count(mapping, height_field)
+        line_height = _clamp(height_field / max(line_count, 1), 10.0, 15.0)
+        target_height = min(height_field, max(18.0, line_count * line_height + 3.0))
+        # Align tall multiline widgets to the top of the detected writable band
+        # so they start where handwriting would naturally begin.
+        widget_y = pdf_y + max(0.0, height_field - target_height)
+        return widget_x, widget_y, widget_width, target_height
+
+    if anchor_type == "underline" or height_field <= 13.5:
+        target_height = _clamp(height_field, 10.0, 13.5)
+        return widget_x, pdf_y, widget_width, target_height
+
+    target_height = min(height_field, 15.5)
+    widget_y = pdf_y + max(0.0, (height_field - target_height) * 0.45)
+    return widget_x, widget_y, widget_width, max(10.0, target_height)
+
+
+def _text_widget_style(mapping, box, height_field: float) -> tuple[str, float]:
+    field_type = _field_type(mapping, box)
+    anchor_type = _answer_anchor_type(mapping, box)
+    if field_type == "multiline" and height_field > 24:
+        return "solid", 0.25
+    if anchor_type in {"rectangle", "table_cell", "value_block"} and height_field > 18:
+        return "solid", 0.25
+    return "underlined", 0.35
+
+
+def _font_size_for_height(field_type: str, height: float) -> float:
+    if field_type == "multiline":
+        return _clamp(height / 5.0, 7.0, 9.0)
+    return _clamp(height - 3.0, 7.5, 9.5)
+
+
+def _checkbox_widget_rect(pdf_x: float, pdf_y: float, width: float, height_field: float):
+    size = _clamp(min(width, height_field), 7.5, 11.0)
+    x = pdf_x + max(0.0, (width - size) / 2.0)
+    y = pdf_y + max(0.0, (height_field - size) / 2.0)
+    return x, y, size
 
 
 def _fraction_intersection_ratio(box, label_box) -> float:
@@ -199,61 +350,86 @@ def create_pdf_with_fields(image_path, mappings, output_path):
         logger.info("[pdf] draw background end page=%s", page_number)
 
         for index, mapping in mappings_by_page.get(page_number, []):
+            if _is_non_fillable_region(mapping):
+                logger.info(
+                    "[pdf] skip non-fillable region page=%s label=%r type=%s",
+                    page_number,
+                    mapping.get("label", ""),
+                    mapping.get("field_type", ""),
+                )
+                continue
+
             field_boxes = _validated_field_boxes(mapping, index)
             if not field_boxes:
                 logger.warning("[pdf] skip mapping %s: no valid field boxes", index)
                 continue
 
             for li, original_box in enumerate(field_boxes):
+                if _is_non_fillable_region(mapping, original_box):
+                    logger.info("[pdf] skip non-fillable box page=%s label=%r", page_number, mapping.get("label", ""))
+                    continue
+
                 box = _adjust_fraction_box_away_from_label(mapping, original_box)
                 is_fraction_box = bool(box.get("bbox_fraction"))
                 if is_fraction_box:
-                    pdf_x = float(box["x"]) * page_width + 2
+                    pdf_x = float(box["x"]) * page_width
                     pdf_y = page_height - ((float(box["y"]) + float(box["height"])) * page_height)
                     width = float(box["width"]) * page_width
-                    height_field = max(12, float(box["height"]) * page_height)
+                    height_field = max(9, float(box["height"]) * page_height)
                 else:
-                    pdf_x = float(box["x"]) * scale_x + 5
+                    pdf_x = float(box["x"]) * scale_x
                     box_y = float(box["y"])
                     box_height = float(box.get("height", 18))
                     pdf_y = page_height - ((box_y + box_height) * scale_y)
                     width = float(box["width"]) * scale_x
-                    height_field = max(12, box_height * scale_y)
+                    height_field = max(9, box_height * scale_y)
 
                 field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
                 logger.info("[pdf] add field start page=%s name=%s type=%s", page_number, field_name, mapping.get("field_type", "text"))
 
-                if mapping.get("field_type") == "photo" or box.get("field_type") == "photo":
-                    c.setStrokeColorRGB(0.55, 0.55, 0.55)
-                    c.rect(pdf_x, pdf_y, max(18, width), max(18, height_field), stroke=1, fill=0)
-                    c.setFont("Helvetica", 8)
-                    c.drawString(pdf_x + 4, pdf_y + max(4, height_field - 10), "PHOTO")
-                    logger.info("[pdf] add photo placeholder end name=%s", field_name)
-                    continue
-
-                if mapping.get("field_type") == "checkbox" or box.get("field_type") == "checkbox":
-                    size = max(10, min(width, height_field))
+                field_type = _field_type(mapping, box)
+                if field_type == "checkbox":
+                    checkbox_x, checkbox_y, size = _checkbox_widget_rect(pdf_x, pdf_y, width, height_field)
                     c.acroForm.checkbox(
                         name=field_name,
                         tooltip=mapping.get("label", "Checkbox"),
-                        x=pdf_x,
-                        y=pdf_y,
+                        x=checkbox_x,
+                        y=checkbox_y,
                         size=size,
-                        borderWidth=1,
+                        fillColor=TRANSPARENT_FILL,
+                        borderColor=CHECKBOX_BORDER,
+                        textColor=FIELD_TEXT,
+                        borderWidth=0.6,
                         buttonStyle="check",
-                        forceBorder=True,
+                        fieldFlags="",
+                        forceBorder=False,
                     )
                 else:
+                    widget_x, widget_y, widget_width, widget_height = _text_widget_rect(
+                        mapping,
+                        box,
+                        pdf_x,
+                        pdf_y,
+                        width,
+                        height_field,
+                    )
+                    border_style, border_width = _text_widget_style(mapping, box, widget_height)
                     c.acroForm.textfield(
                         name=field_name,
                         tooltip=mapping.get("label", "Field"),
-                        x=pdf_x,
-                        y=pdf_y,
-                        width=max(10, width - 10),
-                        height=height_field,
-                        borderStyle="underlined",
-                        fieldFlags="multiline" if mapping.get("field_type") == "multiline" else "",
-                        forceBorder=True,
+                        x=widget_x,
+                        y=widget_y,
+                        width=widget_width,
+                        height=widget_height,
+                        fillColor=TRANSPARENT_FILL,
+                        borderColor=FIELD_BORDER,
+                        textColor=FIELD_TEXT,
+                        borderWidth=border_width,
+                        borderStyle=border_style,
+                        fieldFlags="multiline" if field_type == "multiline" else "",
+                        forceBorder=False,
+                        fontSize=_font_size_for_height(field_type, widget_height),
+                        maxlen=0 if field_type == "multiline" else 100,
                     )
                 logger.info("[pdf] add field end name=%s", field_name)
 
