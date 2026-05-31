@@ -2,6 +2,7 @@ import re
 import logging
 import faulthandler
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from reportlab.lib.pagesizes import letter
@@ -25,6 +26,19 @@ def _safe_field_name(label: str, index: int) -> str:
 
 
 def _field_boxes_from_mapping(mapping):
+    bbox = mapping.get("bbox")
+    if isinstance(bbox, dict) and {"x", "y", "width", "height"}.issubset(bbox.keys()):
+        try:
+            x = float(bbox["x"])
+            y = float(bbox["y"])
+            width = float(bbox["width"])
+            height = float(bbox["height"])
+        except (TypeError, ValueError):
+            pass
+        else:
+            if 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 and 0.0 < width <= 1.0 and 0.0 < height <= 1.0:
+                return [{"bbox_fraction": True, "x": x, "y": y, "width": width, "height": height}]
+
     boxes = mapping.get("field_bboxes")
     if boxes:
         return boxes
@@ -82,6 +96,60 @@ def _validated_field_boxes(mapping, index: int):
     return boxes
 
 
+def _safe_page(mapping) -> int:
+    try:
+        return max(1, int(mapping.get("page") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _fraction_intersection_ratio(box, label_box) -> float:
+    try:
+        x1 = max(float(box["x"]), float(label_box["x"]))
+        y1 = max(float(box["y"]), float(label_box["y"]))
+        x2 = min(float(box["x"]) + float(box["width"]), float(label_box["x"]) + float(label_box["width"]))
+        y2 = min(float(box["y"]) + float(box["height"]), float(label_box["y"]) + float(label_box["height"]))
+        intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+        area = max(float(box["width"]) * float(box["height"]), 0.000001)
+    except (TypeError, ValueError, KeyError):
+        return 0.0
+    return intersection / area
+
+
+def _adjust_fraction_box_away_from_label(mapping, box):
+    if not box.get("bbox_fraction"):
+        return box
+    if mapping.get("field_type") == "photo" or box.get("field_type") == "photo":
+        return box
+
+    label_box = mapping.get("label_bbox")
+    if not isinstance(label_box, dict):
+        return box
+    if _fraction_intersection_ratio(box, label_box) <= 0.03:
+        return box
+
+    adjusted = dict(box)
+    try:
+        right = float(adjusted["x"]) + float(adjusted["width"])
+        label_right = float(label_box["x"]) + float(label_box["width"])
+        label_bottom = float(label_box["y"]) + float(label_box["height"])
+        x_gap = max(float(label_box["height"]) * 0.55, 0.006)
+        new_x = min(0.99, label_right + x_gap)
+    except (TypeError, ValueError, KeyError):
+        return box
+
+    if new_x < right and right - new_x >= 0.035:
+        adjusted["x"] = new_x
+        adjusted["width"] = right - new_x
+        return adjusted
+
+    try:
+        adjusted["y"] = min(0.98, max(float(adjusted["y"]), label_bottom + 0.004))
+    except (TypeError, ValueError, KeyError):
+        return box
+    return adjusted
+
+
 def _verify_output_writable(output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
@@ -117,56 +185,80 @@ def create_pdf_with_fields(image_path, mappings, output_path):
     scale_x = page_width / float(image_width)
     scale_y = page_height / float(image_height)
 
-    logger.info("[pdf] draw background start")
-    c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
-    logger.info("[pdf] draw background end")
-
-    for index, mapping in enumerate(mappings, start=1):
+    mappings_by_page = defaultdict(list)
+    for index, mapping in enumerate(mappings or [], start=1):
         if not isinstance(mapping, dict):
             logger.warning("[pdf] skip mapping %s: mapping is not a dict", index)
             continue
+        mappings_by_page[_safe_page(mapping)].append((index, mapping))
 
-        field_boxes = _validated_field_boxes(mapping, index)
-        if not field_boxes:
-            logger.warning("[pdf] skip mapping %s: no valid field boxes", index)
-            continue
+    page_numbers = sorted(mappings_by_page) or [1]
+    for page_position, page_number in enumerate(page_numbers, start=1):
+        logger.info("[pdf] draw background start page=%s", page_number)
+        c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
+        logger.info("[pdf] draw background end page=%s", page_number)
 
-        for li, box in enumerate(field_boxes):
-            pdf_x = float(box["x"]) * scale_x + 5
-            box_y = float(box["y"])
-            box_height = float(box.get("height", 18))
-            pdf_y = page_height - ((box_y + box_height) * scale_y)
+        for index, mapping in mappings_by_page.get(page_number, []):
+            field_boxes = _validated_field_boxes(mapping, index)
+            if not field_boxes:
+                logger.warning("[pdf] skip mapping %s: no valid field boxes", index)
+                continue
 
-            width = float(box["width"]) * scale_x
-            height_field = max(12, box_height * scale_y)
+            for li, original_box in enumerate(field_boxes):
+                box = _adjust_fraction_box_away_from_label(mapping, original_box)
+                is_fraction_box = bool(box.get("bbox_fraction"))
+                if is_fraction_box:
+                    pdf_x = float(box["x"]) * page_width + 2
+                    pdf_y = page_height - ((float(box["y"]) + float(box["height"])) * page_height)
+                    width = float(box["width"]) * page_width
+                    height_field = max(12, float(box["height"]) * page_height)
+                else:
+                    pdf_x = float(box["x"]) * scale_x + 5
+                    box_y = float(box["y"])
+                    box_height = float(box.get("height", 18))
+                    pdf_y = page_height - ((box_y + box_height) * scale_y)
+                    width = float(box["width"]) * scale_x
+                    height_field = max(12, box_height * scale_y)
 
-            field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
-            logger.info("[pdf] add field start name=%s type=%s", field_name, mapping.get("field_type", "text"))
+                field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
+                logger.info("[pdf] add field start page=%s name=%s type=%s", page_number, field_name, mapping.get("field_type", "text"))
 
-            if mapping.get("field_type") == "checkbox" or box.get("field_type") == "checkbox":
-                size = max(10, min(width, height_field))
-                c.acroForm.checkbox(
-                    name=field_name,
-                    tooltip=mapping.get("label", "Checkbox"),
-                    x=pdf_x,
-                    y=pdf_y,
-                    size=size,
-                    borderWidth=1,
-                    buttonStyle="check",
-                    forceBorder=True,
-                )
-            else:
-                c.acroForm.textfield(
-                    name=field_name,
-                    tooltip=mapping.get("label", "Field"),
-                    x=pdf_x,
-                    y=pdf_y,
-                    width=max(10, width - 10),
-                    height=height_field,
-                    borderStyle="underlined",
-                    forceBorder=True,
-                )
-            logger.info("[pdf] add field end name=%s", field_name)
+                if mapping.get("field_type") == "photo" or box.get("field_type") == "photo":
+                    c.setStrokeColorRGB(0.55, 0.55, 0.55)
+                    c.rect(pdf_x, pdf_y, max(18, width), max(18, height_field), stroke=1, fill=0)
+                    c.setFont("Helvetica", 8)
+                    c.drawString(pdf_x + 4, pdf_y + max(4, height_field - 10), "PHOTO")
+                    logger.info("[pdf] add photo placeholder end name=%s", field_name)
+                    continue
+
+                if mapping.get("field_type") == "checkbox" or box.get("field_type") == "checkbox":
+                    size = max(10, min(width, height_field))
+                    c.acroForm.checkbox(
+                        name=field_name,
+                        tooltip=mapping.get("label", "Checkbox"),
+                        x=pdf_x,
+                        y=pdf_y,
+                        size=size,
+                        borderWidth=1,
+                        buttonStyle="check",
+                        forceBorder=True,
+                    )
+                else:
+                    c.acroForm.textfield(
+                        name=field_name,
+                        tooltip=mapping.get("label", "Field"),
+                        x=pdf_x,
+                        y=pdf_y,
+                        width=max(10, width - 10),
+                        height=height_field,
+                        borderStyle="underlined",
+                        fieldFlags="multiline" if mapping.get("field_type") == "multiline" else "",
+                        forceBorder=True,
+                    )
+                logger.info("[pdf] add field end name=%s", field_name)
+
+        if page_position < len(page_numbers):
+            c.showPage()
 
     logger.info("[pdf] save start output=%s", output)
     faulthandler.dump_traceback_later(30, repeat=True)

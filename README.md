@@ -35,7 +35,7 @@ Environment variables:
 - `FORM_PARSER_OUTPUT_DIR` sets the root output directory.
 - `FORM_PARSER_UPLOAD_DIR` sets the temporary upload directory.
 - `FORM_PARSER_RUNS_DIR` sets the per-request run directory.
-- `CORS_ORIGINS` sets allowed frontend origins as a comma-separated list.
+- `CORS_ORIGINS` sets allowed frontend origins as a comma-separated list. Local dev is allowed by default for `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3001`, and `http://127.0.0.1:3001`.
 - `FORM_PARSER_OCR_LANGUAGES` sets EasyOCR languages as a comma-separated list, defaulting to `en`.
 - `FORM_PARSER_EASYOCR_MODEL_DIR` sets an optional model cache directory.
 - `FORM_PARSER_EASYOCR_DOWNLOAD_ENABLED` controls whether EasyOCR may download missing models, defaulting to `true`.
@@ -82,7 +82,6 @@ To run the Next.js frontend against the local backend, keep the API contract unc
 Backend:
 
 ```bash
-$env:CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 $env:FORM_PARSER_PIPELINE_MODE="textract"
 uvicorn src.api:app --reload --host 0.0.0.0 --port 8000
 ```
