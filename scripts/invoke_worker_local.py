@@ -66,6 +66,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Only verify credentials and bucket/object access; do NOT run Textract.")
     parser.add_argument("--keep-workdir", action="store_true", help="Do not delete the local /tmp working dir after the run.")
     parser.add_argument("--work-root", help="Override the working directory root (default: <tempdir>/form_parser_jobs).")
+    parser.add_argument("--no-output-check", action="store_true", help="Skip downloading + inspecting the produced PDF for checkbox widgets.")
     return parser.parse_args(argv)
 
 
@@ -86,7 +87,10 @@ def _configure_environment(args: argparse.Namespace) -> None:
         os.environ["FORM_PARSER_ARTIFACT_PREFIX"] = args.artifact_prefix
 
     # Keep the staged artifacts around for inspection unless told otherwise.
-    os.environ["FORM_PARSER_WORKER_CLEANUP"] = "false" if args.keep_workdir else "true"
+    # In local-artifacts mode the "published" artifacts ARE the workdir files, so
+    # cleanup must stay off or there would be nothing left to inspect.
+    keep = args.keep_workdir or args.local_artifacts
+    os.environ["FORM_PARSER_WORKER_CLEANUP"] = "false" if keep else "true"
 
     work_root = args.work_root or str(Path(tempfile.gettempdir()) / "form_parser_jobs")
     os.environ["FORM_PARSER_WORK_ROOT"] = work_root
@@ -156,6 +160,69 @@ def _verify_object(session, bucket: str, key: str) -> None:
     print(f"  object     : s3://{bucket}/{key}  ({size} bytes, {meta.get('ContentType')})")
 
 
+def _split_s3_uri(uri: str) -> tuple[str, str]:
+    without = uri[len("s3://"):]
+    bucket, _, key = without.partition("/")
+    return bucket, key
+
+
+def _fetch_artifact(session, manifest: dict, name: str) -> bytes | None:
+    artifacts = (manifest or {}).get("artifacts") or {}
+    uri = artifacts.get(name)
+    if not uri:
+        return None
+    try:
+        if str(uri).startswith("s3://"):
+            bucket, key = _split_s3_uri(uri)
+            dest = Path(tempfile.gettempdir()) / f"_worker_check_{name}"
+            session.client("s3").download_file(bucket, key, str(dest))
+            return dest.read_bytes()
+        return Path(uri).read_bytes()
+    except Exception as exc:
+        print(f"  (could not fetch {name}: {type(exc).__name__}: {exc})")
+        return None
+
+
+def _verify_output_artifacts(session, manifest: dict) -> None:
+    """Download the produced PDF + diagnostics and confirm checkbox rendering in
+    the real AWS-generated output."""
+    print("-- output verification --")
+    pdf = _fetch_artifact(session, manifest, "output.pdf")
+    if pdf:
+        btn = pdf.count(b"/Btn")      # AcroForm checkbox (button) widgets
+        tx = pdf.count(b"/Tx")        # AcroForm text fields
+        print(f"  output.pdf : {len(pdf)} bytes | checkbox widgets(/Btn)={btn} | text fields(/Tx)={tx}")
+    else:
+        print("  output.pdf : not found in manifest")
+
+    diag = _fetch_artifact(session, manifest, "mapping_diagnostics.json")
+    if diag:
+        try:
+            anchoring = json.loads(diag).get("anchoring", {})
+            print(
+                "  checkboxes : detected={} deduped_token={} unassociated={}".format(
+                    anchoring.get("checkbox_field_count"),
+                    anchoring.get("deduped_token_checkbox_count"),
+                    anchoring.get("unassociated_checkbox_count"),
+                )
+            )
+            validation = json.loads(diag).get("validation", {})
+            if isinstance(validation, dict):
+                print(f"  validation : passed={validation.get('passed')}")
+        except Exception as exc:
+            print(f"  (could not parse diagnostics: {type(exc).__name__}: {exc})")
+
+
+def _report_cleanup(work_root: str, job_id: str, kept: bool) -> None:
+    job_dir = Path(work_root) / job_id
+    exists = job_dir.exists()
+    if kept:
+        print(f"  workdir    : kept at {job_dir} (exists={exists})")
+    else:
+        status = "OK (removed)" if not exists else "WARNING (still present)"
+        print(f"  cleanup    : {status} {job_dir}")
+
+
 def main(argv: list[str]) -> int:
     args = _parse_args(argv)
     _configure_environment(args)
@@ -211,14 +278,21 @@ def main(argv: list[str]) -> int:
     # Determine success + surface where outputs landed.
     jobs = result.get("results", [result]) if isinstance(result, dict) and "results" in result else [result]
     failed = [j for j in jobs if j.get("status") != "succeeded"]
+    kept = args.keep_workdir or args.local_artifacts
     for j in jobs:
-        artifacts = j.get("artifacts") or {}
-        if artifacts.get("base_uri"):
-            print(f"\n  artifacts for {j.get('job_id')}: {artifacts.get('base_uri')}  ({artifacts.get('artifact_count')} files)")
+        manifest = j.get("artifacts") or {}
+        if manifest.get("base_uri"):
+            print(f"\n  artifacts for {j.get('job_id')}: {manifest.get('base_uri')}  ({manifest.get('artifact_count')} files)")
+            for name, uri in sorted((manifest.get("artifacts") or {}).items()):
+                print(f"      {name:28} {uri}")
+        if j.get("status") == "succeeded" and not args.no_output_check:
+            _verify_output_artifacts(session, manifest)
+        _report_cleanup(args._work_root, j.get("job_id", ""), kept)
+
     if failed:
         print(f"\nRESULT: {len(failed)}/{len(jobs)} job(s) FAILED")
         return 1
-    print(f"\nRESULT: {len(jobs)} job(s) succeeded ✓")
+    print(f"\nRESULT: {len(jobs)} job(s) succeeded [OK]")
     return 0
 
 
