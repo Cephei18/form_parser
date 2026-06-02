@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TextractAnalyze",
+      "Effect": "Allow",
+      "Action": ["textract:AnalyzeDocument"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RawDocumentsRead",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::form-pdf-poc-dev-raw-documents/*"
+    },
+    {
+      "Sid": "ProcessedDocumentsWrite",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::form-pdf-poc-dev-processed-documents/*"
+    }
+  ]
+}
