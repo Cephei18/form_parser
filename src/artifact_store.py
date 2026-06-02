@@ -32,6 +32,39 @@ _CONTENT_TYPES = {
 }
 
 
+def _build_s3_client(region: str | None = None) -> Any:
+    """Create a boto3 S3 client lazily so importing this module never requires
+    boto3/AWS credentials in local-only environments."""
+    try:
+        import boto3
+    except ModuleNotFoundError as exc:  # pragma: no cover - env dependent
+        raise RuntimeError("boto3 is required for the S3 backend") from exc
+    return boto3.client("s3", region_name=region) if region else boto3.client("s3")
+
+
+def download_s3_object(
+    bucket: str,
+    key: str,
+    dest_path: str | Path,
+    *,
+    region: str | None = None,
+    client: Any | None = None,
+) -> Path:
+    """Download a single S3 object to a local path (creating parent dirs).
+
+    Used by the Lambda worker to stage a raw document into /tmp before running
+    the local-path-based Textract pipeline. A client may be injected for tests.
+    """
+    if not bucket or not key:
+        raise ValueError("download_s3_object requires both bucket and key")
+    dest = Path(dest_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    s3 = client or _build_s3_client(region)
+    logger.info("[storage] downloading s3://%s/%s -> %s", bucket, key, dest)
+    s3.download_file(bucket, key, str(dest))
+    return dest
+
+
 def _iter_artifacts(local_dir: Path) -> list[Path]:
     return sorted(p for p in local_dir.glob("*") if p.is_file())
 
@@ -98,11 +131,7 @@ class S3ArtifactStore(ArtifactStore):
 
     def _ensure_client(self) -> Any:
         if self._client is None:
-            try:
-                import boto3
-            except ModuleNotFoundError as exc:  # pragma: no cover - env dependent
-                raise RuntimeError("boto3 is required for the S3 artifact backend") from exc
-            self._client = boto3.client("s3", region_name=self.region) if self.region else boto3.client("s3")
+            self._client = _build_s3_client(self.region)
         return self._client
 
     def _key_for(self, job_id: str, name: str) -> str:

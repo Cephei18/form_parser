@@ -1,0 +1,53 @@
+# Lambda container image for the serverless Textract worker.
+# Additive: the FastAPI EC2 image (./Dockerfile) remains the OCR fallback.
+#
+# Build & push to the existing ECR repo:
+#   aws ecr get-login-password --region ap-south-1 --profile form-pdf-poc \
+#     | docker login --username AWS --password-stdin 637423601842.dkr.ecr.ap-south-1.amazonaws.com
+#   docker build -f Dockerfile.lambda -t form-pdf-poc-dev-worker:textract-lambda .
+#   docker tag form-pdf-poc-dev-worker:textract-lambda \
+#     637423601842.dkr.ecr.ap-south-1.amazonaws.com/form-pdf-poc-dev-worker:textract-lambda
+#   docker push 637423601842.dkr.ecr.ap-south-1.amazonaws.com/form-pdf-poc-dev-worker:textract-lambda
+#
+# The base image bundles the AWS Lambda Runtime Interface Client, so CMD is the
+# handler path. The Textract worker does NOT need easyocr/torch (OCR-only deps),
+# but we install the full requirements here for parity; trim later if image size
+# matters.
+FROM public.ecr.aws/lambda/python:3.11
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    CUDA_VISIBLE_DEVICES="" \
+    FORM_PARSER_PIPELINE_MODE=textract \
+    FORM_PARSER_ARTIFACT_BACKEND=s3 \
+    FORM_PARSER_PROCESSED_BUCKET=form-pdf-poc-dev-processed-documents \
+    FORM_PARSER_ARTIFACT_PREFIX=textract \
+    FORM_PARSER_WORK_ROOT=/tmp/form_parser_jobs
+
+# Native libs: OpenCV runtime deps + Poppler (pdf2image primary PDF renderer).
+# PyMuPDF is a self-contained fallback if Poppler is ever unavailable.
+RUN yum install -y \
+        mesa-libGL \
+        glib2 \
+        libXext \
+        libXrender \
+        libgomp \
+        poppler-utils \
+    && yum clean all \
+    && rm -rf /var/cache/yum
+
+# Dependencies first for layer caching. ${LAMBDA_TASK_ROOT} is the code root.
+COPY requirements.txt ./
+ARG PYTORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+RUN python -m pip install --no-cache-dir \
+        --index-url "${PYTORCH_CPU_INDEX_URL}" \
+        --extra-index-url "${PYPI_INDEX_URL}" \
+        --requirement requirements.txt
+
+COPY src ${LAMBDA_TASK_ROOT}/src
+
+# Lambda handler: module.function
+CMD ["src.lambda_worker.handler"]
