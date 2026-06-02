@@ -20,6 +20,7 @@ logger.propagate = False
 
 
 TRANSPARENT_FILL = Color(1, 1, 1, alpha=0)
+CHECKBOX_FILL = Color(1, 1, 1)
 FIELD_BORDER = Color(0.66, 0.69, 0.72)
 CHECKBOX_BORDER = Color(0.35, 0.37, 0.39)
 FIELD_TEXT = Color(0.08, 0.08, 0.08)
@@ -154,6 +155,19 @@ def _field_type(mapping, box=None) -> str:
         if value:
             return str(value).lower()
     return "text"
+
+
+def _checkbox_is_checked(mapping) -> bool:
+    if not isinstance(mapping, dict):
+        return False
+
+    for key in ("checked", "is_checked", "is_selected", "selected"):
+        value = mapping.get(key)
+        if isinstance(value, bool):
+            return value
+
+    value = str(mapping.get("value") or "").strip().lower()
+    return value in {"[x]", "x", "yes", "true", "1", "selected", "checked", "on"}
 
 
 def _is_non_fillable_region(mapping, box=None) -> bool:
@@ -397,12 +411,13 @@ def create_pdf_with_fields(image_path, mappings, output_path):
                 if field_type == "checkbox":
                     checkbox_x, checkbox_y, size = _checkbox_widget_rect(pdf_x, pdf_y, width, height_field)
                     c.acroForm.checkbox(
+                        checked=_checkbox_is_checked(mapping),
                         name=field_name,
                         tooltip=mapping.get("label", "Checkbox"),
                         x=checkbox_x,
                         y=checkbox_y,
                         size=size,
-                        fillColor=TRANSPARENT_FILL,
+                        fillColor=CHECKBOX_FILL,
                         borderColor=CHECKBOX_BORDER,
                         textColor=FIELD_TEXT,
                         borderWidth=0.6,

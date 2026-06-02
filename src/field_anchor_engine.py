@@ -56,10 +56,23 @@ PHOTO_REGION_MAX_TEXT = 1
 PHOTO_OVERLAP_SUPPRESS = 0.55
 
 # Confidence floor below which an unresolved (purely estimated) field is dropped
-# instead of rendered as clutter; and whether to drop checkboxes Textract could
-# not associate with any owner (Batch C, moderate setting).
+# instead of rendered as clutter.
 UNRESOLVED_DROP_FLOOR = 0.2
-DROP_UNASSOCIATED_CHECKBOXES = True
+
+# Whether to drop checkboxes Textract could not associate with any owner.
+# IMPORTANT: defaults to False. Standalone / agreement / option-list checkboxes
+# are frequently reported by Textract as "unassociated" yet are real, fillable
+# widgets — dropping them made checkboxes disappear from many forms. We now flag
+# them in diagnostics instead. Set to True only for a deliberate audit pass.
+DROP_UNASSOCIATED_CHECKBOXES = False
+
+# Deduplicate "[X]"/"[ ]" token checkboxes that KEY_VALUE_SET parsing emits as
+# field items against the canonical SELECTION_ELEMENT checkbox at the same spot.
+# A token checkbox is suppressed ONLY when it overlaps a real SELECTION_ELEMENT
+# region (text values like "yes"/"no" never overlap one, so they are untouched).
+# Reversible via this flag.
+DEDUPE_TOKEN_CHECKBOXES = True
+SELECTION_DEDUPE_OVERLAP = 0.4
 
 
 def _relationship_ids(block: dict[str, Any], relationship_type: str | None = None) -> list[str]:
@@ -501,6 +514,36 @@ def _overlaps_photo_region(box: dict[str, float], page: int, photo_regions: list
         if int(feature.get("page") or 1) != page:
             continue
         if _overlap_ratio(box, feature["bbox"]) >= PHOTO_OVERLAP_SUPPRESS:
+            return True
+    return False
+
+
+def _selection_regions(blocks: list[dict[str, Any]], page_by_id: dict[str, int]) -> list[dict[str, Any]]:
+    """Canonical checkbox regions: the geometry of every SELECTION_ELEMENT."""
+    regions: list[dict[str, Any]] = []
+    for block in blocks:
+        if block.get("BlockType") != "SELECTION_ELEMENT":
+            continue
+        bbox = _block_bbox(block)
+        if not bbox:
+            continue
+        regions.append({"page": _block_page(block, page_by_id, 1), "bbox": bbox})
+    return regions
+
+
+def _overlaps_selection_region(box: dict[str, float], page: int, selection_regions: list[dict[str, Any]]) -> bool:
+    """True when ``box`` covers a SELECTION_ELEMENT (so a token checkbox at this
+    location is a duplicate of that native checkbox). Uses center-containment OR
+    strong overlap relative to the small selection glyph — deterministic and
+    conservative so independent checkboxes elsewhere are never matched."""
+    for region in selection_regions:
+        if int(region.get("page") or 1) != page:
+            continue
+        selection = region["bbox"]
+        center_x, center_y = _box_center(selection)
+        if box["x"] <= center_x <= _box_right(box) and box["y"] <= center_y <= _box_bottom(box):
+            return True
+        if _intersection_area(box, selection) / max(_box_area(selection), 1e-9) >= SELECTION_DEDUPE_OVERLAP:
             return True
     return False
 
@@ -1082,6 +1125,8 @@ def build_anchored_mappings(
     photo_regions, visual_features["empty_boxes"] = _split_photo_regions(visual_features.get("empty_boxes", []))
     visual_features["photo_regions"] = photo_regions
     cells = _table_cells(parsed)
+    # Canonical checkbox geometry for token-checkbox deduplication (see below).
+    selection_regions = _selection_regions(blocks, page_by_id)
 
     image_size = visual_features.get("image_size")
     if image_size:
@@ -1096,6 +1141,7 @@ def build_anchored_mappings(
 
     mappings: list[dict[str, Any]] = []
     anchor_records: list[dict[str, Any]] = []
+    deduped_token_checkbox_count = 0
 
     seen_key_ids: set[str] = set()
     for index, field_item in enumerate(parsed.get("field_items", []) or [], start=1):
@@ -1135,20 +1181,34 @@ def build_anchored_mappings(
         if (
             anchor_type == "unresolved_label_region"
             and score < UNRESOLVED_DROP_FLOOR
-            and field_type not in {"photo", "signature"}
+            and field_type not in {"photo", "signature", "checkbox"}
         ):
             logger.info("[anchor] drop unresolved low-confidence field label=%r score=%.3f", label, score)
             continue
 
         # Batch B: never draw an input widget on top of a detected photo region.
         # Strong structural anchors (real Textract value/table geometry) are kept;
-        # only floaty estimated boxes landing on a photo are suppressed.
+        # only floaty estimated boxes landing on a photo are suppressed. Checkboxes
+        # are exempt: a checkbox glyph near a photo is still a real control.
         if (
-            field_type not in {"photo", "signature"}
+            field_type not in {"photo", "signature", "checkbox"}
             and anchor_type not in {"value_block", "table_cell"}
             and _overlaps_photo_region(answer_box, page, photo_regions)
         ):
             logger.info("[anchor] suppress field overlapping photo region label=%r anchor=%s", label, anchor_type)
+            continue
+
+        # Checkbox deduplication: a token checkbox ("[X]"/"[ ]") emitted from
+        # KEY_VALUE_SET parsing that overlaps a real SELECTION_ELEMENT is the same
+        # logical checkbox. Prefer the structurally-native SELECTION_ELEMENT (it
+        # renders below) and suppress only this overlapping token duplicate.
+        if (
+            DEDUPE_TOKEN_CHECKBOXES
+            and field_type == "checkbox"
+            and _overlaps_selection_region(answer_box, page, selection_regions)
+        ):
+            deduped_token_checkbox_count += 1
+            logger.info("[anchor] dedupe token checkbox into SELECTION_ELEMENT label=%r", label)
             continue
 
         multiline_group_size = max(1, value.count("\n") + 1 if value else 1)
@@ -1206,11 +1266,16 @@ def build_anchored_mappings(
             }
         )
 
+    unassociated_checkbox_count = 0
     for index, checkbox in enumerate(parsed.get("checkboxes", []) or [], start=1):
-        # Batch C (moderate): drop checkboxes Textract could not tie to any owner.
-        if DROP_UNASSOCIATED_CHECKBOXES and (checkbox.get("ownership") or {}).get("ownership_type") == "unassociated":
-            logger.info("[anchor] drop unassociated checkbox id=%s", checkbox.get("selection_element_id"))
-            continue
+        is_unassociated = (checkbox.get("ownership") or {}).get("ownership_type") == "unassociated"
+        if is_unassociated:
+            unassociated_checkbox_count += 1
+            # Flag for diagnostics but DO NOT drop by default: standalone / agreement
+            # checkboxes are real fillable widgets. Opt-in drop only.
+            if DROP_UNASSOCIATED_CHECKBOXES:
+                logger.info("[anchor] drop unassociated checkbox id=%s (opt-in)", checkbox.get("selection_element_id"))
+                continue
         checkbox_mapping = _checkbox_mapping(checkbox, blocks_by_id, page_by_id, image_width, image_height, index)
         if checkbox_mapping is None:
             continue
@@ -1300,6 +1365,9 @@ def build_anchored_mappings(
         "fillable_field_count": sum(1 for mapping in mappings if mapping.get("field_type") != "photo"),
         "photo_field_count": field_type_counts.get("photo", 0),
         "checkbox_field_count": field_type_counts.get("checkbox", 0),
+        "unassociated_checkbox_count": unassociated_checkbox_count,
+        "dropped_unassociated_checkboxes": DROP_UNASSOCIATED_CHECKBOXES,
+        "deduped_token_checkbox_count": deduped_token_checkbox_count,
         "field_type_counts": dict(field_type_counts),
         "anchor_type_counts": dict(anchor_type_counts),
         "label_overlap_count": label_overlap_count,
