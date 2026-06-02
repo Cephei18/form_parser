@@ -2,9 +2,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger("form_parser.textract_parser")
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _relationship_ids(block: dict[str, Any], relationship_type: str | None = None) -> list[str]:
@@ -166,8 +176,8 @@ def _extract_tables(blocks_by_id: dict[str, dict[str, Any]], text_cache: dict[st
             if not cell_block or cell_block.get("BlockType") != "CELL":
                 continue
 
-            row_index = int(cell_block.get("RowIndex") or 0)
-            column_index = int(cell_block.get("ColumnIndex") or 0)
+            row_index = _safe_int(cell_block.get("RowIndex"), 0)
+            column_index = _safe_int(cell_block.get("ColumnIndex"), 0)
             max_row = max(max_row, row_index)
             max_col = max(max_col, column_index)
             cells.append(
@@ -175,8 +185,8 @@ def _extract_tables(blocks_by_id: dict[str, dict[str, Any]], text_cache: dict[st
                     "cell_id": cell_id,
                     "row_index": row_index,
                     "column_index": column_index,
-                    "row_span": int(cell_block.get("RowSpan") or 1),
-                    "column_span": int(cell_block.get("ColumnSpan") or 1),
+                    "row_span": _safe_int(cell_block.get("RowSpan"), 1),
+                    "column_span": _safe_int(cell_block.get("ColumnSpan"), 1),
                     "text": _block_text(cell_id, blocks_by_id, text_cache),
                     "confidence": cell_block.get("Confidence"),
                     "geometry": _geometry_summary(cell_block),
@@ -309,7 +319,19 @@ def _extract_checkboxes(
 
 
 def parse_textract_response(response: dict[str, Any]) -> dict[str, Any]:
-    blocks = response.get("Blocks", []) or []
+    # Production hardening: tolerate malformed / unexpected Textract payloads
+    # instead of crashing the pipeline on a bad document.
+    if not isinstance(response, dict):
+        logger.warning("[parser] response is not a dict (got %s); treating as empty", type(response).__name__)
+        response = {}
+    raw_blocks = response.get("Blocks")
+    if not isinstance(raw_blocks, list):
+        if raw_blocks is not None:
+            logger.warning("[parser] 'Blocks' is not a list (got %s); coercing to empty", type(raw_blocks).__name__)
+        raw_blocks = []
+    blocks = [block for block in raw_blocks if isinstance(block, dict)]
+    if len(blocks) != len(raw_blocks):
+        logger.warning("[parser] dropped %d non-dict block(s) from response", len(raw_blocks) - len(blocks))
     blocks_by_id = {block.get("Id"): block for block in blocks if block.get("Id")}
     text_cache: dict[str, str] = {}
     parent_map = _build_parent_map(blocks)
@@ -355,7 +377,17 @@ def parse_textract_response(response: dict[str, Any]) -> dict[str, Any]:
 
     # Confidence summaries
     def _avg(values: list[float]) -> float | None:
-        vals = [float(v) for v in values if v is not None]
+        vals: list[float] = []
+        for v in values:
+            if v is None:
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if fv != fv:  # skip NaN
+                continue
+            vals.append(fv)
         if not vals:
             return None
         return sum(vals) / len(vals)

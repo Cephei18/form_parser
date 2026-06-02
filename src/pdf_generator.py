@@ -232,6 +232,12 @@ def _text_widget_rect(mapping, box, pdf_x: float, pdf_y: float, width: float, he
 
 
 def _text_widget_style(mapping, box, height_field: float) -> tuple[str, float]:
+    # Textract-only hint: the answer region sits on an already-printed line/box/
+    # cell, so drawing our own border would stack a second line over it. Render
+    # borderless (border width 0). OCR mappings never set this key, so their
+    # rendering is unchanged.
+    if isinstance(mapping, dict) and mapping.get("render_border") is False and _field_type(mapping, box) != "checkbox":
+        return "underlined", 0.0
     field_type = _field_type(mapping, box)
     anchor_type = _answer_anchor_type(mapping, box)
     if field_type == "multiline" and height_field > 24:

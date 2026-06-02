@@ -197,6 +197,106 @@ def compare_field_and_checkbox_consistency(fields: dict[str, Any], checkboxes: l
     }
 
 
+def _is_nan(value: Any) -> bool:
+    return isinstance(value, float) and value != value
+
+
+def validate_mappings_sanity(mappings: list[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Pre-deployment sanity guard over the final answer-region mappings.
+    Flags malformed geometry (NaN / out-of-range / zero-size) and surfaces
+    whether the document yielded any fillable fields at all. Never raises.
+    """
+    issues: list[str] = []
+    fillable = 0
+    photo = 0
+    out_of_range = 0
+    zero_size = 0
+    nan_boxes = 0
+    low_confidence = 0
+
+    for index, mapping in enumerate(mappings or []):
+        if not isinstance(mapping, dict):
+            issues.append(f"mapping_{index}_not_a_dict")
+            continue
+
+        field_type = mapping.get("field_type")
+        if field_type == "photo":
+            photo += 1
+        else:
+            fillable += 1
+
+        bbox = mapping.get("bbox")
+        if not isinstance(bbox, dict):
+            nan_boxes += 1
+            issues.append(f"mapping_{index}_missing_bbox")
+            continue
+        try:
+            x = float(bbox["x"]); y = float(bbox["y"])
+            w = float(bbox["width"]); h = float(bbox["height"])
+        except (KeyError, TypeError, ValueError):
+            nan_boxes += 1
+            issues.append(f"mapping_{index}_non_numeric_bbox")
+            continue
+        if any(_is_nan(v) for v in (x, y, w, h)):
+            nan_boxes += 1
+            issues.append(f"mapping_{index}_nan_bbox")
+            continue
+        if w <= 0 or h <= 0:
+            zero_size += 1
+        if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0) or x + w > 1.001 or y + h > 1.001:
+            out_of_range += 1
+
+        confidence = mapping.get("confidence")
+        if isinstance(confidence, (int, float)) and not _is_nan(float(confidence)) and confidence < 0.42:
+            low_confidence += 1
+
+    if fillable == 0:
+        issues.append("no_fillable_fields_detected")
+
+    return {
+        "mapping_count": len(mappings or []),
+        "fillable_count": fillable,
+        "photo_count": photo,
+        "out_of_range_boxes": out_of_range,
+        "zero_size_boxes": zero_size,
+        "nan_boxes": nan_boxes,
+        "low_confidence_fields": low_confidence,
+        "issues": issues,
+        "passed": nan_boxes == 0 and zero_size == 0 and fillable > 0,
+    }
+
+
+def build_validation_report(parsed: dict[str, Any], mappings: list[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Single non-fatal entry point that aggregates every validator into one
+    report for the pipeline diagnostics. Each section is isolated so a failure
+    in one validator can never break document rendering.
+    """
+    report: dict[str, Any] = {}
+    safe_parsed = parsed if isinstance(parsed, dict) else {}
+
+    def _safe(name: str, fn: Any) -> None:
+        try:
+            report[name] = fn()
+        except Exception as exc:  # pragma: no cover - defensive guard
+            report[name] = {"error": f"{type(exc).__name__}: {exc}"}
+
+    _safe("tables", lambda: summarize_table_extraction(safe_parsed.get("tables", []) or []))
+    _safe("checkboxes", lambda: summarize_checkbox_extraction(safe_parsed.get("checkboxes", []) or []))
+    _safe(
+        "field_checkbox_consistency",
+        lambda: compare_field_and_checkbox_consistency(
+            safe_parsed.get("fields", {}) or {}, safe_parsed.get("checkboxes", []) or []
+        ),
+    )
+    _safe("mapping_sanity", lambda: validate_mappings_sanity(mappings or []))
+
+    sanity = report.get("mapping_sanity")
+    report["passed"] = bool(isinstance(sanity, dict) and sanity.get("passed"))
+    return report
+
+
 if __name__ == "__main__":
     import json
     import sys

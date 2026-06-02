@@ -6,10 +6,13 @@ from typing import Any
 
 import cv2
 
+from src.artifact_store import get_artifact_store
 from src.field_anchor_engine import build_anchored_mappings, draw_anchor_debug_overlay
 from src.pdf_generator import create_pdf_with_fields
+from src.pipeline_config import StorageConfig
 from src.textract_service import load_json, save_json
 from src.textract_service import parse_response_file
+from src.textract_validators import build_validation_report
 
 logger = logging.getLogger("form_parser.pipeline.textract")
 
@@ -36,6 +39,33 @@ def _draw_mapping_preview(image_path: Path, mappings: list[dict[str, Any]], outp
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), image):
         raise RuntimeError(f"Failed to write mapping preview: {output_path}")
+
+
+def _validate_before_emit(parsed: dict[str, Any], mappings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Run the validation suite defensively and log any sanity warnings.
+
+    Always returns a report dict; never raises, so a validator bug can never
+    block PDF rendering in production.
+    """
+    try:
+        report = build_validation_report(parsed, mappings)
+    except Exception:  # pragma: no cover - last-resort guard
+        logger.exception("[pipeline] validation report generation failed; continuing")
+        return {"error": "validation_failed", "passed": False}
+
+    sanity = report.get("mapping_sanity") if isinstance(report, dict) else None
+    if isinstance(sanity, dict):
+        if not sanity.get("passed"):
+            logger.warning(
+                "[pipeline] validation sanity check did not pass: fillable=%s nan_boxes=%s zero_size=%s issues=%s",
+                sanity.get("fillable_count"),
+                sanity.get("nan_boxes"),
+                sanity.get("zero_size_boxes"),
+                sanity.get("issues"),
+            )
+        if sanity.get("out_of_range_boxes"):
+            logger.warning("[pipeline] %s mapping box(es) fall outside the page bounds", sanity.get("out_of_range_boxes"))
+    return report
 
 
 def _analyze_with_textract(image_path: Path) -> dict[str, Any]:
@@ -82,11 +112,18 @@ def run_textract_pipeline(file_path: str | Path, output_dir: str | Path, referen
     mapping_image_path = destination_dir / "mapping.png"
     debug_image_path = destination_dir / "textract_mapping_debug.png"
     anchoring_metadata_path = destination_dir / "anchoring_metadata.json"
+    validation_report_path = destination_dir / "validation_report.json"
     pdf_output_path = destination_dir / "output.pdf"
+
+    # Production hardening: validate parsed output and final mappings before
+    # emitting the PDF. Non-fatal — a validator failure must never block
+    # rendering — but surfaces malformed geometry / empty-result documents.
+    validation_report = _validate_before_emit(parsed, mappings)
 
     save_json(mappings_path, mappings)
     save_json(result_path, mappings)
     save_json(anchoring_metadata_path, anchor_diagnostics)
+    save_json(validation_report_path, validation_report)
     draw_anchor_debug_overlay(image_path, mappings, debug_image_path, visual_features=visual_features)
     _draw_mapping_preview(image_path, mappings, mapping_image_path)
     create_pdf_with_fields(image_path, mappings, pdf_output_path)
@@ -108,9 +145,27 @@ def run_textract_pipeline(file_path: str | Path, output_dir: str | Path, referen
         "anchoring_metadata_path": str(anchoring_metadata_path),
         "anchoring": anchor_diagnostics,
         "field_objects": field_objects,
+        "validation": validation_report,
+        "validation_report_path": str(validation_report_path),
     }
     save_json(destination_dir / "mapping_diagnostics.json", diagnostics)
     save_json(destination_dir / "benchmark_summary.json", diagnostics)
+
+    # Serverless-migration step 1: publish the finished artifacts through the
+    # storage abstraction. Default backend is "local" (no-op); when configured
+    # for S3 this mirrors every run artifact to the processed-documents bucket,
+    # making the pipeline Lambda-compatible without changing local behavior.
+    storage_config = StorageConfig.from_env()
+    artifact_store = get_artifact_store(storage_config)
+    job_id = destination_dir.name or "textract-job"
+    artifact_manifest = artifact_store.publish(destination_dir, job_id=job_id)
+    logger.info(
+        "[pipeline] artifacts published backend=%s job_id=%s count=%s base=%s",
+        artifact_manifest.get("backend"),
+        job_id,
+        artifact_manifest.get("artifact_count"),
+        artifact_manifest.get("base_uri"),
+    )
 
     logger.info(
         "[pipeline] Textract pipeline completed in %.1fms labels=%s anchored=%s fields=%s photos=%s checkboxes=%s",
@@ -146,6 +201,7 @@ def run_textract_pipeline(file_path: str | Path, output_dir: str | Path, referen
         "parsed_output": parsed,
         "diagnostics_path": destination_dir / "mapping_diagnostics.json",
         "debug_image_path": debug_image_path,
+        "artifact_store": artifact_manifest,
     }
 
 

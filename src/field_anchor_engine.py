@@ -41,6 +41,26 @@ MULTILINE_KEYWORDS = {
 
 CHECKBOX_VALUE_TOKENS = {"[x]", "[ ]", "x", "yes", "no"}
 
+# --- Textract-pipeline-only tunables (safe to revert; OCR path never reads these) ---
+# Answer regions anchored on an already-printed feature must NOT get a second
+# artificial border drawn over them, otherwise the printed line and the widget
+# underline stack into a cluttered double line (Batch A).
+PRINTED_FEATURE_ANCHORS = {"underline", "empty_rectangle", "table_cell"}
+
+# Photo / decorative placeholder detection, as fractions of the page (Batch B).
+PHOTO_REGION_MIN_AREA = 0.012
+PHOTO_REGION_MIN_HEIGHT = 0.07
+PHOTO_REGION_MIN_ASPECT = 0.5
+PHOTO_REGION_MAX_ASPECT = 1.7
+PHOTO_REGION_MAX_TEXT = 1
+PHOTO_OVERLAP_SUPPRESS = 0.55
+
+# Confidence floor below which an unresolved (purely estimated) field is dropped
+# instead of rendered as clutter; and whether to drop checkboxes Textract could
+# not associate with any owner (Batch C, moderate setting).
+UNRESOLVED_DROP_FLOOR = 0.2
+DROP_UNASSOCIATED_CHECKBOXES = True
+
 
 def _relationship_ids(block: dict[str, Any], relationship_type: str | None = None) -> list[str]:
     ids: list[str] = []
@@ -446,6 +466,45 @@ def _dedupe_feature_boxes(features: list[dict[str, Any]]) -> list[dict[str, Any]
     return deduped
 
 
+def _split_photo_regions(empty_boxes: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Separate large near-square decorative/photo placeholders from genuine
+    input rectangles so no field widget is ever anchored on top of them."""
+    photo_regions: list[dict[str, Any]] = []
+    remaining: list[dict[str, Any]] = []
+    for feature in empty_boxes or []:
+        box = feature.get("bbox") or {}
+        try:
+            width = float(box["width"])
+            height = float(box["height"])
+        except (KeyError, TypeError, ValueError):
+            remaining.append(feature)
+            continue
+        area = width * height
+        aspect = width / max(height, 1e-6)
+        text_count = int(feature.get("text_count") or 0)
+        if (
+            area >= PHOTO_REGION_MIN_AREA
+            and height >= PHOTO_REGION_MIN_HEIGHT
+            and PHOTO_REGION_MIN_ASPECT <= aspect <= PHOTO_REGION_MAX_ASPECT
+            and text_count <= PHOTO_REGION_MAX_TEXT
+        ):
+            enriched = dict(feature)
+            enriched["type"] = "photo_region"
+            photo_regions.append(enriched)
+        else:
+            remaining.append(feature)
+    return photo_regions, remaining
+
+
+def _overlaps_photo_region(box: dict[str, float], page: int, photo_regions: list[dict[str, Any]]) -> bool:
+    for feature in photo_regions or []:
+        if int(feature.get("page") or 1) != page:
+            continue
+        if _overlap_ratio(box, feature["bbox"]) >= PHOTO_OVERLAP_SUPPRESS:
+            return True
+    return False
+
+
 def _table_cells(parsed: dict[str, Any]) -> list[dict[str, Any]]:
     cells: list[dict[str, Any]] = []
     for table_index, table in enumerate(parsed.get("tables", []) or [], start=1):
@@ -772,6 +831,12 @@ def _adjacent_whitespace_candidate(
     else:
         y = max(0.0, label_center_y - metrics["line_height"] * 0.7)
         height = metrics["line_height"] * (3.2 if multiline_hint else 1.55)
+        if not multiline_hint:
+            # Cap an otherwise-unbounded single-line writing area so the widget
+            # aligns tightly to a realistic answer width instead of stretching
+            # to the page margin when there is no obstacle to the right.
+            max_width = max(metrics["text_width"] * 3.0, 0.30)
+            end_x = min(end_x, start_x + max_width)
 
     bbox = _normalize_box({"x": start_x, "y": y, "width": end_x - start_x, "height": height})
     if not bbox:
@@ -1012,6 +1077,10 @@ def build_anchored_mappings(
     text_boxes = _visual_text_boxes(blocks, page_by_id)
     metrics_by_page = _build_page_metrics(text_boxes)
     visual_features = _detect_visual_features(image_path, text_boxes)
+    # Batch B: peel decorative/photo placeholders out of the empty-rectangle pool
+    # so they can never be selected as an input region for a neighbouring label.
+    photo_regions, visual_features["empty_boxes"] = _split_photo_regions(visual_features.get("empty_boxes", []))
+    visual_features["photo_regions"] = photo_regions
     cells = _table_cells(parsed)
 
     image_size = visual_features.get("image_size")
@@ -1059,6 +1128,29 @@ def build_anchored_mappings(
 
         answer_box = selected["bbox"]
         score = float(selected.get("score", 0.0))
+        anchor_type = selected.get("anchor_type")
+
+        # Batch C (moderate): drop purely-estimated fields we could not resolve
+        # to any plausible region rather than rendering them as low-value clutter.
+        if (
+            anchor_type == "unresolved_label_region"
+            and score < UNRESOLVED_DROP_FLOOR
+            and field_type not in {"photo", "signature"}
+        ):
+            logger.info("[anchor] drop unresolved low-confidence field label=%r score=%.3f", label, score)
+            continue
+
+        # Batch B: never draw an input widget on top of a detected photo region.
+        # Strong structural anchors (real Textract value/table geometry) are kept;
+        # only floaty estimated boxes landing on a photo are suppressed.
+        if (
+            field_type not in {"photo", "signature"}
+            and anchor_type not in {"value_block", "table_cell"}
+            and _overlaps_photo_region(answer_box, page, photo_regions)
+        ):
+            logger.info("[anchor] suppress field overlapping photo region label=%r anchor=%s", label, anchor_type)
+            continue
+
         multiline_group_size = max(1, value.count("\n") + 1 if value else 1)
         if field_type == "multiline":
             multiline_group_size = max(multiline_group_size, int(math.ceil(answer_box["height"] / max(metrics["line_height"] * 1.35, 0.001))))
@@ -1083,6 +1175,10 @@ def build_anchored_mappings(
             "multiline_group_size": multiline_group_size,
             "field_bboxes": [_box_to_pixel_box(answer_box, image_width, image_height)],
             "source": "textract_anchor",
+            # Batch A: when the answer sits on an already-printed line/box/cell,
+            # signal the renderer to stay borderless so it does not stack a
+            # second line over the existing one.
+            "render_border": anchor_type not in PRINTED_FEATURE_ANCHORS,
             "anchoring": {
                 "anchor_type": selected.get("anchor_type"),
                 "type_reasons": type_reasons,
@@ -1111,6 +1207,10 @@ def build_anchored_mappings(
         )
 
     for index, checkbox in enumerate(parsed.get("checkboxes", []) or [], start=1):
+        # Batch C (moderate): drop checkboxes Textract could not tie to any owner.
+        if DROP_UNASSOCIATED_CHECKBOXES and (checkbox.get("ownership") or {}).get("ownership_type") == "unassociated":
+            logger.info("[anchor] drop unassociated checkbox id=%s", checkbox.get("selection_element_id"))
+            continue
         checkbox_mapping = _checkbox_mapping(checkbox, blocks_by_id, page_by_id, image_width, image_height, index)
         if checkbox_mapping is None:
             continue
@@ -1125,6 +1225,56 @@ def build_anchored_mappings(
                 "answer_bbox": checkbox_mapping["bbox"],
                 "anchor_type": "checkbox_region",
                 "confidence": checkbox_mapping["confidence"],
+                "label_overlap_ratio": 0.0,
+                "candidate_count": 1,
+            }
+        )
+
+    # Batch B: record detected photo/decorative regions as explicit non-fillable
+    # markers (the renderer already skips field_type == "photo"). This documents
+    # the suppressed zone without drawing any widget, and avoids re-emitting a
+    # region already covered by a keyword-detected photo field above.
+    existing_photo_boxes = [m["bbox"] for m in mappings if m.get("field_type") == "photo"]
+    for p_index, feature in enumerate(photo_regions, start=1):
+        box = feature["bbox"]
+        if any(_overlap_ratio(box, existing) > 0.5 for existing in existing_photo_boxes):
+            continue
+        page = int(feature.get("page") or 1)
+        conf = round(_clamp(float(feature.get("confidence") or 0.7)), 4)
+        photo_mapping = {
+            "field_id": f"photo_region_{p_index}",
+            "label": "Photograph",
+            "value": "",
+            "field_type": "photo",
+            "bbox": _round_box(box),
+            "label_bbox": None,
+            "answer_region": {"bbox": _round_box(box), "type": "photo_region", "confidence": conf},
+            "page": page,
+            "confidence": conf,
+            "candidate_score": conf,
+            "confidence_class": _confidence_class(conf),
+            "multiline_group_size": 1,
+            "field_bboxes": [_box_to_pixel_box(box, image_width, image_height)],
+            "source": "textract_anchor",
+            "render_border": False,
+            "anchoring": {
+                "anchor_type": "photo_region",
+                "type_reasons": ["visual_photo_region"],
+                "selection_reasons": ["decorative_region_suppressed"],
+            },
+        }
+        mappings.append(photo_mapping)
+        existing_photo_boxes.append(photo_mapping["bbox"])
+        anchor_records.append(
+            {
+                "field_id": photo_mapping["field_id"],
+                "label": "Photograph",
+                "field_type": "photo",
+                "page": page,
+                "label_bbox": None,
+                "answer_bbox": photo_mapping["bbox"],
+                "anchor_type": "photo_region",
+                "confidence": conf,
                 "label_overlap_ratio": 0.0,
                 "candidate_count": 1,
             }
@@ -1159,6 +1309,7 @@ def build_anchored_mappings(
         "visual_features": {
             "underline_count": len(visual_features.get("underlines", []) or []),
             "empty_box_count": len(visual_features.get("empty_boxes", []) or []),
+            "photo_region_count": len(photo_regions),
         },
         "table_cell_count": len(cells),
         "text_box_count": len(text_boxes),
@@ -1172,6 +1323,7 @@ def build_anchored_mappings(
         "visual_features": {
             "underlines": visual_features.get("underlines", []),
             "empty_boxes": visual_features.get("empty_boxes", []),
+            "photo_regions": photo_regions,
         },
     }
 
@@ -1208,6 +1360,13 @@ def draw_anchor_debug_overlay(
             continue
         x, y, w, h = to_px(feature["bbox"])
         cv2.rectangle(image, (x, y), (x + w, y + h), (140, 140, 220), 1)
+
+    for feature in (visual_features or {}).get("photo_regions", []) or []:
+        if int(feature.get("page") or 1) != 1:
+            continue
+        x, y, w, h = to_px(feature["bbox"])
+        cv2.rectangle(image, (x, y), (x + w, y + h), (190, 80, 190), 2)
+        cv2.putText(image, "photo/suppressed", (x, max(12, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (190, 80, 190), 1, cv2.LINE_AA)
 
     for mapping in mappings:
         if int(mapping.get("page") or 1) != 1:

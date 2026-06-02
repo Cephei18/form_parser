@@ -110,10 +110,50 @@ class StructuralRefinementConfig:
         return asdict(self)
 
 
+def _str_env(name: str, default: str) -> str:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return value.strip()
+
+
+@dataclass(frozen=True)
+class StorageConfig:
+    """Artifact storage backend for the Textract pipeline (serverless migration).
+
+    Defaults to ``local`` so the existing on-disk workflow is unchanged. Set
+    ``FORM_PARSER_ARTIFACT_BACKEND=s3`` plus a processed bucket to publish run
+    artifacts to S3 (the first Lambda-compatible step). OCR is unaffected.
+    """
+
+    backend: str = "local"
+    processed_bucket: str | None = None
+    prefix: str = "textract"
+    region: str | None = None
+
+    @classmethod
+    def from_env(cls) -> "StorageConfig":
+        backend = _str_env("FORM_PARSER_ARTIFACT_BACKEND", "local").lower()
+        if backend not in {"local", "s3"}:
+            logger.warning("[config] invalid FORM_PARSER_ARTIFACT_BACKEND=%r; falling back to local", backend)
+            backend = "local"
+        region = os.getenv("FORM_PARSER_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+        return cls(
+            backend=backend,
+            processed_bucket=os.getenv("FORM_PARSER_PROCESSED_BUCKET") or None,
+            prefix=_str_env("FORM_PARSER_ARTIFACT_PREFIX", "textract"),
+            region=region or None,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 @dataclass(frozen=True)
 class PipelineConfig:
     preprocessing: PreprocessingConfig
     structural_refinement: StructuralRefinementConfig
+    storage: StorageConfig
     ocr_diagnostics_enabled: bool = True
     dynamic_thresholds_enabled: bool = False
     image_table_filtering_enabled: bool = False
@@ -128,6 +168,7 @@ class PipelineConfig:
         return cls(
             preprocessing=PreprocessingConfig.from_env(),
             structural_refinement=StructuralRefinementConfig.from_env(),
+            storage=StorageConfig.from_env(),
             ocr_diagnostics_enabled=_bool_env("FORM_PARSER_OCR_DIAGNOSTICS_ENABLED", True),
             dynamic_thresholds_enabled=_bool_env("FORM_PARSER_DYNAMIC_THRESHOLDS_ENABLED", False),
             image_table_filtering_enabled=_bool_env("FORM_PARSER_IMAGE_TABLE_FILTERING_ENABLED", False),
