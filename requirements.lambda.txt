@@ -1,0 +1,31 @@
+# Runtime dependencies for the Lambda Textract worker ONLY.
+#
+# Deliberately excludes the OCR / scientific / plotting stack that the worker
+# never imports (matplotlib -> contourpy/kiwisolver/fonttools, torch, easyocr,
+# scikit-image, pandas, flask, fastapi/uvicorn, ...). The full local/EC2 stack
+# remains in requirements.txt — this file does NOT replace it, so the OCR
+# pipeline and local workflows are unaffected.
+#
+# Why this file exists: contourpy (a matplotlib dependency) attempted a source
+# build inside the Lambda base image, which ships no C++ toolchain. The worker
+# does not use matplotlib, so the entire chain is dropped here. Every pin below
+# ships a prebuilt manylinux x86_64 wheel — no compiler toolchain required.
+#
+# Versions are kept identical to requirements.txt so the image matches the
+# locally validated runtime exactly.
+
+# AWS SDK — S3 download/publish + Textract AnalyzeDocument
+boto3==1.43.15
+botocore==1.43.15
+
+# Image handling + semantic anchoring geometry (cv2 needs numpy; headless = no GUI libs)
+numpy==1.26.4
+opencv-python-headless==4.8.1.78
+pillow==12.2.0
+
+# Fillable PDF generation
+reportlab==4.4.10
+
+# PDF -> image rasterisation (pdf2image primary via Poppler; PyMuPDF fallback)
+pdf2image==1.17.0
+PyMuPDF==1.27.2.2

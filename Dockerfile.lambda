@@ -10,10 +10,17 @@
 #   docker push 637423601842.dkr.ecr.ap-south-1.amazonaws.com/form-pdf-poc-dev-worker:textract-lambda
 #
 # The base image bundles the AWS Lambda Runtime Interface Client, so CMD is the
-# handler path. The Textract worker does NOT need easyocr/torch (OCR-only deps),
-# but we install the full requirements here for parity; trim later if image size
-# matters.
-FROM public.ecr.aws/lambda/python:3.11
+# handler path. The Textract worker uses a TRIMMED dependency set
+# (requirements.lambda.txt) — no easyocr/torch/matplotlib — which both avoids the
+# contourpy source-build (the base image has no C++ toolchain) and keeps the image
+# small. The full OCR/EC2 stack stays in requirements.txt for the legacy image.
+#
+# Base: python:3.12 (Amazon Linux 2023, glibc 2.34) NOT python:3.11 (AL2, glibc
+# 2.26). Modern wheels (PyMuPDF 1.27, Pillow 12, ...) are manylinux_2_28 and
+# require glibc >= 2.28, so on AL2 pip falls back to source builds. AL2023 accepts
+# them as prebuilt wheels (no compiler needed) and matches the existing
+# python3.12 Lambdas in this account.
+FROM public.ecr.aws/lambda/python:3.12
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -28,24 +35,21 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Native libs: OpenCV runtime deps + Poppler (pdf2image primary PDF renderer).
 # PyMuPDF is a self-contained fallback if Poppler is ever unavailable.
-RUN yum install -y \
+RUN dnf install -y \
         mesa-libGL \
         glib2 \
         libXext \
         libXrender \
         libgomp \
         poppler-utils \
-    && yum clean all \
-    && rm -rf /var/cache/yum
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
 
 # Dependencies first for layer caching. ${LAMBDA_TASK_ROOT} is the code root.
-COPY requirements.txt ./
-ARG PYTORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
-ARG PYPI_INDEX_URL=https://pypi.org/simple
-RUN python -m pip install --no-cache-dir \
-        --index-url "${PYTORCH_CPU_INDEX_URL}" \
-        --extra-index-url "${PYPI_INDEX_URL}" \
-        --requirement requirements.txt
+# Trimmed worker requirements — prebuilt wheels only, from PyPI (no PyTorch index
+# needed since torch/easyocr are not installed).
+COPY requirements.lambda.txt ./
+RUN python -m pip install --no-cache-dir --requirement requirements.lambda.txt
 
 COPY src ${LAMBDA_TASK_ROOT}/src
 

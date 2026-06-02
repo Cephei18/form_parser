@@ -69,7 +69,10 @@ if ($Delete) {
 # 1) Build ------------------------------------------------------------------
 if (-not $SkipBuild) {
   Step "Building image $ImageUri (linux/amd64)"
-  docker build --platform linux/amd64 -f Dockerfile.lambda -t $ImageUri .
+  # --provenance=false : BuildKit otherwise emits an attestation manifest LIST,
+  # which Lambda rejects ("image manifest ... not supported"). Lambda needs a
+  # single-arch image manifest.
+  docker build --platform linux/amd64 --provenance=false -f Dockerfile.lambda -t $ImageUri .
   if ($LASTEXITCODE -ne 0) { throw "docker build failed" }
 } else {
   Step "Skipping build (-SkipBuild); using local $ImageUri"
