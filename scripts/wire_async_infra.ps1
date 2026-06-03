@@ -111,18 +111,30 @@ if ($ApiRoutes -or $All) {
     Tolerate { aws apigatewayv2 create-route --api-id $ApiId --route-key $r.Key `
       --target "integrations/$intId" --profile $Profile --region $Region | Out-Null }
 
-    # Allow API Gateway to invoke the function for this route.
-    $method = ($r.Key -split " ")[0]
-    $path   = ($r.Key -split " ")[1]
-    $stmtId = "apigw-" + ($r.Fn -replace "[^A-Za-z0-9]", "-")
+    # Allow API Gateway to invoke the function for this route. Path parameters
+    # ({job_id}) MUST be a wildcard in the source ARN — the literal token does
+    # not match at invoke time and API Gateway would return 500 (not authorized).
+    $method   = ($r.Key -split " ")[0]
+    $path     = ($r.Key -split " ")[1]
+    $arnPath  = [regex]::Replace($path, "\{[^}]+\}", "*")
+    $stmtId   = "apigw-" + ($r.Fn -replace "[^A-Za-z0-9]", "-")
     Tolerate { aws lambda add-permission --function-name $r.Fn --statement-id $stmtId `
       --action lambda:InvokeFunction --principal apigateway.amazonaws.com `
-      --source-arn "arn:aws:execute-api:${Region}:${AccountId}:${ApiId}/*/$method$path" `
+      --source-arn "arn:aws:execute-api:${Region}:${AccountId}:${ApiId}/*/$method$arnPath" `
       --profile $Profile --region $Region | Out-Null }
   }
   Step "Configuring API CORS for $FrontendOrigin"
-  aws apigatewayv2 update-api --api-id $ApiId `
-    --cors-configuration "AllowOrigins=$FrontendOrigin,AllowMethods=GET,POST,OPTIONS,AllowHeaders=content-type" `
+  # JSON (not shorthand): AllowMethods is a comma-containing list and would
+  # collide with the Key=val,Key=val shorthand parser.
+  $corsCfg = @{
+    AllowOrigins = @($FrontendOrigin)
+    AllowMethods = @("GET", "POST", "OPTIONS")
+    AllowHeaders = @("content-type")
+    MaxAge       = 300
+  } | ConvertTo-Json -Compress
+  $corsTmp = Join-Path ([System.IO.Path]::GetTempPath()) "api_cors.json"
+  $corsCfg | Out-File -FilePath $corsTmp -Encoding utf8
+  aws apigatewayv2 update-api --api-id $ApiId --cors-configuration "file://$corsTmp" `
     --profile $Profile --region $Region | Out-Null
   Info "Rollback: aws apigatewayv2 delete-route / delete-integration for the IDs above."
 }

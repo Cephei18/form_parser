@@ -68,9 +68,9 @@ class JobStateStore:
             self._ddb().update_item(
                 TableName=self.table_name,
                 Key={"job_id": {"S": job_id}},
-                UpdateExpression="SET #s = :processing, updated_at = :ts ADD attempts :one",
+                UpdateExpression="SET #s = :processing, updated_at = :ts ADD #at :one",
                 ConditionExpression="attribute_not_exists(#s) OR #s IN (:queued, :processing)",
-                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeNames={"#s": "status", "#at": "attempts"},
                 ExpressionAttributeValues={
                     ":processing": {"S": "PROCESSING"},
                     ":queued": {"S": "QUEUED"},
@@ -94,9 +94,9 @@ class JobStateStore:
             self._ddb().update_item(
                 TableName=self.table_name,
                 Key={"job_id": {"S": job_id}},
-                UpdateExpression="SET #s = :succeeded, updated_at = :ts, artifacts = :art, metrics = :met",
+                UpdateExpression="SET #s = :succeeded, updated_at = :ts, #ar = :art, #m = :met",
                 ConditionExpression="#s = :processing",
-                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeNames={"#s": "status", "#ar": "artifacts", "#m": "metrics"},
                 ExpressionAttributeValues={
                     ":succeeded": {"S": "SUCCEEDED"},
                     ":processing": {"S": "PROCESSING"},
