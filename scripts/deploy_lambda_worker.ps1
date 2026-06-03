@@ -47,6 +47,9 @@ $EcrUri       = "$RegistryHost/$Repo"
 $ImageUri     = "${EcrUri}:${Tag}"
 
 # Environment variables for the function (no commas in any value --- shorthand-safe).
+# DDB_TABLE enables the worker's DynamoDB job state machine (QUEUED -> PROCESSING
+# -> SUCCEEDED|FAILED) for SQS-sourced jobs. If it is unset the worker still runs
+# but skips DDB writes (safe for manual S3/direct-invoke validation).
 $EnvVars = "Variables={" + (@(
   "FORM_PARSER_PIPELINE_MODE=textract",
   "FORM_PARSER_ARTIFACT_BACKEND=s3",
@@ -54,7 +57,8 @@ $EnvVars = "Variables={" + (@(
   "FORM_PARSER_ARTIFACT_PREFIX=textract",
   "FORM_PARSER_AWS_REGION=$Region",
   "FORM_PARSER_WORK_ROOT=/tmp/form_parser_jobs",
-  "FORM_PARSER_WORKER_CLEANUP=true"
+  "FORM_PARSER_WORKER_CLEANUP=true",
+  "DDB_TABLE=form-pdf-poc-dev-jobs"
 ) -join ",") + "}"
 
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }

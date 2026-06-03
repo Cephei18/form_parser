@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Comment": "Runtime permissions for the shared FormPdfPocLambdaExecutionRole (all 5 async functions). ARN-scoped per the IAM matrix; Textract has no resource-level support so it is *. Attach via: aws iam put-role-policy --role-name FormPdfPocLambdaExecutionRole --policy-name form-pdf-poc-async-runtime --policy-document file://infra/lambda_exec_role_policy.json",
+  "Statement": [
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:ap-south-1:637423601842:log-group:/aws/lambda/form-pdf-poc-dev-*"
+    },
+    {
+      "Sid": "JobsTable",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:637423601842:table/form-pdf-poc-dev-jobs",
+        "arn:aws:dynamodb:ap-south-1:637423601842:table/form-pdf-poc-dev-jobs/index/*"
+      ]
+    },
+    {
+      "Sid": "ProcessingQueue",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:ap-south-1:637423601842:form-pdf-poc-dev-processing-queue"
+    },
+    {
+      "Sid": "RawBucketReadAndPresign",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::form-pdf-poc-dev-raw-documents/uploads/*"
+    },
+    {
+      "Sid": "ProcessedBucketReadWriteAndPresign",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::form-pdf-poc-dev-processed-documents/textract/*"
+    },
+    {
+      "Sid": "Textract",
+      "Effect": "Allow",
+      "Action": ["textract:AnalyzeDocument"],
+      "Resource": "*"
+    }
+  ]
+}

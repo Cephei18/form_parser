@@ -1,5 +1,6 @@
 export type SupportedFileType = "image/png" | "image/jpeg" | "application/pdf";
-export type ProcessingMode = "rule" | "ml";
+// "rule" / "ml" → synchronous EC2 OCR pipeline; "textract" → async serverless flow.
+export type ProcessingMode = "rule" | "ml" | "textract";
 
 export interface ProcessingStats {
   ocr_count: number;
@@ -47,4 +48,37 @@ export interface UploadSessionData {
   originalFileName: string;
   mode: ProcessingMode;
   stages: string[];
+}
+
+// --- Async (serverless Textract) flow ---------------------------------------
+
+export type JobStatus =
+  | "QUEUED"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "DEAD_LETTER"
+  | "UNKNOWN";
+
+export interface PresignResponse {
+  job_id: string;
+  raw_key: string;
+  expires_in: number;
+  upload: {
+    method: string;
+    url: string;
+    fields: Record<string, string>;
+  };
+}
+
+export interface JobStatusResponse {
+  job_id: string;
+  status: JobStatus;
+  mode?: string;
+  created_at?: string;
+  updated_at?: string;
+  result_ready: boolean;
+  terminal: boolean;
+  metrics?: Record<string, number | string>;
+  error?: { type?: string; message?: string };
 }

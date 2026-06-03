@@ -7,9 +7,29 @@ import { FilePreview } from "@/components/file-preview";
 import { LoadingButton } from "@/components/loading-button";
 import { PageCard } from "@/components/page-card";
 import { StatusAlert } from "@/components/status-alert";
-import { processForm } from "@/lib/api";
+import { processForm, processFormAsync, shouldUseAsync } from "@/lib/api";
+import { TEXTRACT_ASYNC_ENABLED } from "@/lib/constants";
 import { fileToDataUrl, validateFile } from "@/lib/file";
-import type { ProcessingMode, UploadSessionData } from "@/lib/types";
+import type { JobStatus, ProcessingMode, UploadSessionData } from "@/lib/types";
+
+// When the async serverless flow is enabled, Textract is the default engine and
+// is offered as a selectable mode; otherwise the UI is unchanged (rule/ml only).
+const MODE_OPTIONS: ProcessingMode[] = TEXTRACT_ASYNC_ENABLED
+  ? ["textract", "rule", "ml"]
+  : ["rule", "ml"];
+const DEFAULT_MODE: ProcessingMode = TEXTRACT_ASYNC_ENABLED ? "textract" : "rule";
+const MODE_LABELS: Record<ProcessingMode, string> = {
+  textract: "Textract",
+  rule: "Standard AI",
+  ml: "ML beta"
+};
+
+const ASYNC_STATUS_COPY: Partial<Record<JobStatus, string>> = {
+  QUEUED: "Upload received — waiting for a worker.",
+  PROCESSING: "Analyzing your document with Textract.",
+  SUCCEEDED: "Done — preparing your result.",
+  FAILED: "Processing failed."
+};
 
 const SESSION_KEY = "form-parser:last-upload";
 const PROGRESS_CAP_BEFORE_COMPLETE = 88;
@@ -64,9 +84,10 @@ export default function UploadPage() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [mode, setMode] = useState<ProcessingMode>("rule");
+  const [mode, setMode] = useState<ProcessingMode>(DEFAULT_MODE);
   const [activeStage, setActiveStage] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [asyncStatusNote, setAsyncStatusNote] = useState("");
 
   const previewMimeType = useMemo(() => selectedFile?.type ?? "", [selectedFile]);
 
@@ -100,6 +121,7 @@ export default function UploadPage() {
       return;
     }
 
+    const useAsync = shouldUseAsync(mode);
     let stageTimer: number | undefined;
     try {
       setIsProcessing(true);
@@ -107,6 +129,7 @@ export default function UploadPage() {
       setActiveStage(0);
       setError("");
       setSuccess("");
+      setAsyncStatusNote("");
 
       stageTimer = window.setInterval(() => {
         setProgress((currentProgress) => {
@@ -120,7 +143,11 @@ export default function UploadPage() {
         });
       }, 420);
 
-      const result = await processForm(selectedFile, mode);
+      const result = useAsync
+        ? await processFormAsync(selectedFile, mode, (status) =>
+            setAsyncStatusNote(ASYNC_STATUS_COPY[status] ?? "")
+          )
+        : await processForm(selectedFile, mode);
       if (stageTimer !== undefined) {
         window.clearInterval(stageTimer);
         stageTimer = undefined;
@@ -141,6 +168,12 @@ export default function UploadPage() {
       const params = new URLSearchParams({
         pdf_url: result.pdf_url
       });
+
+      // Tell the result page which URL-validation scheme to use: async artifacts
+      // are presigned S3 URLs (cross-origin), the sync path is same-origin /files/.
+      if (useAsync) {
+        params.set("src", "async");
+      }
 
       if (result.mapping_preview) {
         params.set("mapping_preview", result.mapping_preview);
@@ -166,6 +199,7 @@ export default function UploadPage() {
       }
       setProgress(0);
       setIsProcessing(false);
+      setAsyncStatusNote("");
     }
   }, [mode, previewSource, router, selectedFile]);
 
@@ -219,7 +253,7 @@ export default function UploadPage() {
               Advanced options
             </summary>
             <div className="mt-3 inline-flex rounded-2xl border border-edge bg-slate-50 p-1">
-              {(["rule", "ml"] as ProcessingMode[]).map((item) => (
+              {MODE_OPTIONS.map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -229,7 +263,7 @@ export default function UploadPage() {
                   }`}
                   disabled={isProcessing}
                 >
-                  {item === "rule" ? "Standard AI" : "ML beta"}
+                  {MODE_LABELS[item]}
                 </button>
               ))}
             </div>
@@ -240,7 +274,9 @@ export default function UploadPage() {
               <div className="mb-3 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-ink">{STAGES[activeStage].label}...</p>
-                  <p className="mt-1 text-xs text-slate-600">{STAGES[activeStage].detail}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {asyncStatusNote || STAGES[activeStage].detail}
+                  </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand shadow-sm">
                   {Math.round(progress)}%

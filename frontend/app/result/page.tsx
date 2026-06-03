@@ -7,7 +7,7 @@ import { FilePreview } from "@/components/file-preview";
 import { MappingOverlay } from "@/components/mapping-overlay";
 import { PageCard } from "@/components/page-card";
 import { StatusAlert } from "@/components/status-alert";
-import { mappingJsonUrlFromPreview, normalizeBackendFileUrl } from "@/lib/api";
+import { mappingJsonUrlFromPreview, normalizeAsyncFileUrl, normalizeBackendFileUrl } from "@/lib/api";
 import type { ResultPayload, UploadSessionData } from "@/lib/types";
 
 const SESSION_KEY = "form-parser:last-upload";
@@ -76,22 +76,30 @@ function ResultContent() {
   const [resultData, setResultData] = useState<ResultPayload | null>(null);
   const [resultError, setResultError] = useState("");
 
+  // Async artifacts are presigned S3 URLs (cross-origin); the sync path serves
+  // same-origin /files/ URLs. Pick the matching validator per result source.
+  const isAsync = useMemo(() => searchParams.get("src") === "async", [searchParams]);
+  const normalizeUrl = isAsync ? normalizeAsyncFileUrl : normalizeBackendFileUrl;
+
   const pdfUrl = useMemo(
-    () => normalizeBackendFileUrl(searchParams.get("pdf_url")),
-    [searchParams]
+    () => normalizeUrl(searchParams.get("pdf_url")),
+    [normalizeUrl, searchParams]
   );
   const resultUrl = useMemo(
-    () => normalizeBackendFileUrl(searchParams.get("result_url")),
-    [searchParams]
+    () => normalizeUrl(searchParams.get("result_url")),
+    [normalizeUrl, searchParams]
   );
   const mappingCount = useMemo(() => searchParams.get("mapping_count") ?? "", [searchParams]);
   const mappingPreview = useMemo(
-    () => normalizeBackendFileUrl(searchParams.get("mapping_preview")),
-    [searchParams]
+    () => normalizeUrl(searchParams.get("mapping_preview")),
+    [normalizeUrl, searchParams]
   );
+  // For the sync path, the mappings JSON is derived from the mapping.png URL.
+  // For async, that string trick would break the presigned signature, so we
+  // rely on result_url (result.json = the mappings array) instead.
   const mappingsUrl = useMemo(
-    () => mappingJsonUrlFromPreview(mappingPreview),
-    [mappingPreview]
+    () => (isAsync ? "" : mappingJsonUrlFromPreview(mappingPreview)),
+    [isAsync, mappingPreview]
   );
 
   useEffect(() => {
