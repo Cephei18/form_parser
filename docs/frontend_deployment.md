@@ -22,20 +22,29 @@ Textract integration is additive and flag-gated; this doc makes the cutover inst
 
 ## Final production env values
 
+The API Gateway routes live under the **`/dev` stage** (verified live: `/dev/uploads`
+→ 200, bare path → 404). The async base URL MUST include `/dev`.
+
 | Var | Value |
 |---|---|
-| `NEXT_PUBLIC_ASYNC_API_BASE_URL` | `https://58is64i9kb.execute-api.ap-south-1.amazonaws.com` |
-| `NEXT_PUBLIC_TEXTRACT_ASYNC` | `false` → flip to `true` at cutover |
-| `NEXT_PUBLIC_API_BASE_URL` | sync EC2 origin if restored; otherwise the API GW origin as a safe non-localhost placeholder (EC2 is stopped → rule/ml modes are non-functional until restored) |
+| `NEXT_PUBLIC_ASYNC_API_BASE_URL` | `https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev` |
+| `NEXT_PUBLIC_TEXTRACT_ASYNC` | `true` (backend is live + validated 14/14) |
+| `NEXT_PUBLIC_API_BASE_URL` | sync EC2 origin if restored; otherwise the API GW `/dev` origin as a safe non-localhost placeholder (EC2 is stopped → rule/ml modes are non-functional until restored) |
+
+> ⚠️ **CORS is per-origin.** It is currently wired for `http://localhost:3000` only
+> (API Gateway + raw + processed buckets — all verified). Before deploying to the real
+> production frontend origin, re-run the wiring for that origin:
+> `wire_async_infra.ps1 -ApiRoutes -Cors -FrontendOrigin https://<prod-origin> -Profile <admin>`
+> — otherwise the browser upload/poll/result-fetch will fail CORS even though the API works.
 
 ## Exact build command (CI / clean checkout — canonical)
 
 ```bash
 cd frontend
 npm ci
-NEXT_PUBLIC_ASYNC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com \
-NEXT_PUBLIC_TEXTRACT_ASYNC=false \
-NEXT_PUBLIC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com \
+NEXT_PUBLIC_ASYNC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev \
+NEXT_PUBLIC_TEXTRACT_ASYNC=true \
+NEXT_PUBLIC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev \
   npm run build
 # → static site in frontend/out/
 ```
@@ -70,23 +79,43 @@ document set to `index.html` (one-time bucket config).
    ```
 3. Frontend is static + additive → no schema/state to roll back.
 
-## Async flow validation (pre-cutover, against a wired API)
+## Async flow validation (LIVE — verified)
 
-- `processFormAsync`: POST `/uploads` → presigned POST upload → poll `/jobs/{id}` →
-  GET `/result/{id}`. Verified end-to-end at the backend (14/14); from the browser
-  it requires the admin to have wired the 3 API GW routes + raw-bucket CORS.
-- Polling: 1.5→4s backoff, 3-min ceiling; stops on `SUCCEEDED`/`FAILED`.
+- **Live HTTP E2E: 14/14** via `scripts/e2e_live_api.py` — exercises the exact browser
+  calls through the `/dev` stage: POST `/uploads` → presigned POST upload → auto
+  S3-notif→SQS→worker→Textract → poll `/jobs/{id}` (QUEUED→PROCESSING→SUCCEEDED in
+  ~9s) → GET `/result/{id}` → PDF download + `result.json` fetch. DLQ stayed 0.
+- **CORS verified for `http://localhost:3000`** (API Gateway preflight + raw POST/PUT +
+  processed GET). So local browser validation works: `npm run dev` then open
+  `http://localhost:3000`. Re-wire CORS for the real prod origin before prod cutover.
+- Polling: 1.5→4s backoff, 3-min ceiling; stops on `SUCCEEDED`/`FAILED` (no deadlock).
 - Signed URLs: result page accepts `https://*.amazonaws.com` only (async branch),
   same-origin `/files/` only (sync branch) — selected by `?src=async`.
-- Rollback: flag off → `shouldUseAsync()` returns false → sync path.
+
+### Local browser validation (against the live backend)
+```bash
+cd frontend
+NEXT_PUBLIC_ASYNC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev \
+NEXT_PUBLIC_TEXTRACT_ASYNC=true \
+  npm run dev   # open http://localhost:3000 (CORS already allows this origin)
+```
+
+## Rollback env config
+
+| Mode | `NEXT_PUBLIC_TEXTRACT_ASYNC` | Effect |
+|---|---|---|
+| **Active (now)** | `true` | Textract uploads go async via `/dev` |
+| **Rollback** | `false` | `shouldUseAsync()` false → 100% sync path; rebuild + redeploy |
+
+Rollback needs no infra teardown — flag off is sufficient (the async API stays up, idle).
 
 ## Frontend cutover checklist
 
-1. [ ] Admin has wired API GW routes + S3 notification + SQS ESM + raw/processed CORS.
-2. [ ] `curl POST <API>/uploads` returns a presigned POST (smoke test).
-3. [ ] Build with shell env vars, flag **false**; `aws s3 sync` to `<FRONTEND_BUCKET>`; CF invalidate.
-4. [ ] Manually verify the site loads and the sync path is unaffected.
-5. [ ] Rebuild with flag **true**; redeploy; CF invalidate.
-6. [ ] Upload one real form → QUEUED→PROCESSING→SUCCEEDED → PDF downloads.
-7. [ ] Watch worker logs + DLQ depth (0) during first real uploads.
-8. [ ] Rollback ready: previous `out/` retained; flag-off build one command away.
+1. [x] Backend wired + LIVE: API GW `/dev` routes, S3 notification, SQS ESM (verified 14/14).
+2. [x] `curl POST <API>/dev/uploads` returns a presigned POST (verified).
+3. [ ] **Re-wire CORS for the prod origin** (currently only `http://localhost:3000`):
+       `wire_async_infra.ps1 -ApiRoutes -Cors -FrontendOrigin https://<prod-origin> -Profile <admin>`.
+4. [ ] Build with shell env vars (`/dev` async URL, flag **true**); `aws s3 sync frontend/out/` to `<FRONTEND_BUCKET>`; CF invalidate.
+5. [ ] Open the deployed site → upload one real form → QUEUED→PROCESSING→SUCCEEDED → PDF downloads.
+6. [ ] Watch worker logs + DLQ depth (0) during first real uploads.
+7. [ ] Rollback ready: previous `out/` retained; flag-off rebuild one command away.

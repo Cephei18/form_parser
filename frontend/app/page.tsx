@@ -12,10 +12,12 @@ import { TEXTRACT_ASYNC_ENABLED } from "@/lib/constants";
 import { fileToDataUrl, validateFile } from "@/lib/file";
 import type { JobStatus, ProcessingMode, UploadSessionData } from "@/lib/types";
 
-// When the async serverless flow is enabled, Textract is the default engine and
-// is offered as a selectable mode; otherwise the UI is unchanged (rule/ml only).
+// When the async serverless flow is enabled, Textract is the only live engine —
+// the synchronous rule/ml OCR modes depend on EC2, which is stopped/deprecated, so
+// exposing them would route real users to a dead endpoint. They reappear automatically
+// when the flag is off (instant rollback) or when EC2 is restored. OCR code is untouched.
 const MODE_OPTIONS: ProcessingMode[] = TEXTRACT_ASYNC_ENABLED
-  ? ["textract", "rule", "ml"]
+  ? ["textract"]
   : ["rule", "ml"];
 const DEFAULT_MODE: ProcessingMode = TEXTRACT_ASYNC_ENABLED ? "textract" : "rule";
 const MODE_LABELS: Record<ProcessingMode, string> = {
