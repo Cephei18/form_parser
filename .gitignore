@@ -30,9 +30,11 @@ htmlcov/
 # Logs
 *.log
 
-# Environment variables
+# Environment variables (ignore real env files, keep committable templates)
 .env
 .env.*
+!.env.example
+!frontend/.env.example
 
 # IDE / editor
 .vscode/
@@ -77,3 +79,11 @@ secrets.json
 .aws/
 .env.local
 *.secret
+
+# Serverless / Lambda deployment local outputs
+# (gitignore has no inline comments — keep patterns on their own lines)
+# out.json: `aws lambda invoke` output produced by the deploy runbook
+out.json
+*.lambda-invoke.json
+# downloaded / packaged Lambda zip bundles (tracked source files are not .zip)
+*.zip
