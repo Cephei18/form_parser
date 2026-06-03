@@ -88,6 +88,25 @@ function Resolve-FrontendOrigin([string]$Origin) {
   return $o
 }
 
+# Set the HTTP API's CORS allow-origin. Route-safe (does NOT create integrations/
+# routes), so it can be re-run for a new origin without orphaning integrations.
+# Called from both -ApiRoutes (initial wiring) and -Cors (CORS-only re-runs).
+function Set-ApiGatewayCors([string]$Origin) {
+  Step "Configuring API Gateway CORS for $Origin"
+  # JSON (not shorthand): AllowMethods is a comma-containing list and would
+  # collide with the Key=val,Key=val shorthand parser.
+  $corsCfg = @{
+    AllowOrigins = @($Origin)
+    AllowMethods = @("GET", "POST", "OPTIONS")
+    AllowHeaders = @("content-type")
+    MaxAge       = 300
+  } | ConvertTo-Json -Compress
+  $corsTmp = Join-Path ([System.IO.Path]::GetTempPath()) "api_cors.json"
+  Write-Utf8NoBom $corsTmp $corsCfg
+  aws apigatewayv2 update-api --api-id $ApiId --cors-configuration "file://$corsTmp" `
+    --profile $Profile --region $Region | Out-Null
+}
+
 if (-not ($Role -or $WorkerEnv -or $ApiRoutes -or $S3Notify -or $Esm -or $Cors)) { $All = $true }
 
 # Validate the frontend origin once, up front, but only when a slice that uses
@@ -153,19 +172,7 @@ if ($ApiRoutes -or $All) {
       --source-arn "arn:aws:execute-api:${Region}:${AccountId}:${ApiId}/*/$method$arnPath" `
       --profile $Profile --region $Region | Out-Null }
   }
-  Step "Configuring API CORS for $FrontendOrigin"
-  # JSON (not shorthand): AllowMethods is a comma-containing list and would
-  # collide with the Key=val,Key=val shorthand parser.
-  $corsCfg = @{
-    AllowOrigins = @($FrontendOrigin)
-    AllowMethods = @("GET", "POST", "OPTIONS")
-    AllowHeaders = @("content-type")
-    MaxAge       = 300
-  } | ConvertTo-Json -Compress
-  $corsTmp = Join-Path ([System.IO.Path]::GetTempPath()) "api_cors.json"
-  Write-Utf8NoBom $corsTmp $corsCfg
-  aws apigatewayv2 update-api --api-id $ApiId --cors-configuration "file://$corsTmp" `
-    --profile $Profile --region $Region | Out-Null
+  Set-ApiGatewayCors $FrontendOrigin
   Info "Rollback: aws apigatewayv2 delete-route / delete-integration for the IDs above."
 }
 
@@ -207,9 +214,13 @@ if ($Esm -or $All) {
   Info "Rollback: aws lambda delete-event-source-mapping --uuid <UUID> (stops consumption; in-flight ages to DLQ)."
 }
 
-# --- Slice: bucket CORS ------------------------------------------------------
+# --- Slice: CORS (API Gateway + raw + processed buckets) --------------------
 if ($Cors -or $All) {
   # $FrontendOrigin is already validated/normalized up front (Resolve-FrontendOrigin).
+  # Route-safe: also (re)sets API Gateway CORS without re-creating integrations,
+  # so this single slice is the complete CORS cutover for a new frontend origin.
+  Set-ApiGatewayCors $FrontendOrigin
+
   Step "Applying raw-bucket CORS (browser POST/PUT)"
   $rawCors = (Get-Content (Join-Path $RepoRoot "infra/raw_bucket_cors.json") -Raw).Replace("https://REPLACE_WITH_FRONTEND_ORIGIN", $FrontendOrigin)
   $rawTmp = Join-Path ([System.IO.Path]::GetTempPath()) "raw_cors.json"

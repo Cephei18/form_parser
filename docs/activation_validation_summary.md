@@ -69,3 +69,53 @@ teardown. Full ladder in `docs/go_live_checklist.md`.
 ```bash
 .venv/Scripts/python.exe scripts/e2e_live_api.py        # live HTTP E2E, 14/14
 ```
+
+---
+
+## Production rollout status (frontend deployed)
+
+- **Frontend DEPLOYED** to `s3://form-pdf-poc-dev-frontend/` (the live hosting bucket).
+  Backup of the prior build saved to `./frontend-prod-backup/` (23 objects). Deploy was
+  34 uploads / 17 deletes; verified served:
+  - `http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com/` → 200
+  - `/result/` → 200; app chunk serves the `/dev` async URL; old chunks 404 (clean `--delete`).
+- **Public origin:** `http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com` (S3 website endpoint, HTTP). HTTP page → HTTPS API/S3 calls is allowed (no mixed-content block).
+
+### THE ONE REMAINING GATE — production CORS (admin)
+
+CORS is wired for `http://localhost:3000` only. Verified the deployed origin is **blocked**:
+API GW preflight returns no `access-control-allow-origin`; both buckets return 403. Until
+this is wired, the deployed site fails in the browser at the first upload.
+
+**One route-safe command (elevated identity)** — now updates API Gateway CORS + raw +
+processed bucket CORS in a single run (the `-Cors` slice was hardened to also set API GW
+CORS without re-creating routes):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\wire_async_infra.ps1 `
+  -Cors -FrontendOrigin http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com `
+  -Profile <admin>
+```
+
+> This sets prod-origin CORS (replaces localhost). To keep localhost dev too, re-run with
+> `-FrontendOrigin http://localhost:3000` afterward, or set both origins directly via
+> `aws apigatewayv2 update-api` + `aws s3api put-bucket-cors` with a 2-element origins list.
+
+### Validate after the admin runs it (read-only — I can run these)
+
+```bash
+SITE=http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
+A=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev
+curl -i -X OPTIONS "$A/uploads" -H "Origin: $SITE" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"   # expect ACAO: $SITE
+curl -i -X OPTIONS "https://form-pdf-poc-dev-raw-documents.s3.amazonaws.com/"       -H "Origin: $SITE" -H "Access-Control-Request-Method: POST" # expect 200 + ACAO
+curl -i -X OPTIONS "https://form-pdf-poc-dev-processed-documents.s3.amazonaws.com/" -H "Origin: $SITE" -H "Access-Control-Request-Method: GET"  # expect 200 + ACAO
+```
+
+Then open the site, upload `input/form.pdf`, watch QUEUED→PROCESSING→SUCCEEDED, download the PDF.
+
+### Frontend rollback (if needed)
+
+```bash
+aws s3 sync ./frontend-prod-backup/ s3://form-pdf-poc-dev-frontend/ --delete --profile form-pdf-poc
+```
+Or flip `NEXT_PUBLIC_TEXTRACT_ASYNC=false`, rebuild, redeploy → 100% sync (no infra teardown).

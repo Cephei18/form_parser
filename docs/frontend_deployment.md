@@ -52,14 +52,27 @@ NEXT_PUBLIC_API_BASE_URL=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com
 For a **local** prod-style build, the committed-locally `.env.production` supplies
 these — but first `mv .env.local .env.local.bak` (or it overrides the async vars’ siblings).
 
-## Exact deploy command (operator supplies bucket / distribution)
+## Exact deploy command
+
+Hosting bucket (discovered live): **`form-pdf-poc-dev-frontend`** (ap-south-1). It
+currently holds an old pre-async export (2026-05-11). A dry-run deploy of the new
+build shows **34 uploads / 17 deletes**. Whether a CloudFront distribution fronts it
+is unconfirmed (`cloudfront:ListDistributions` + `s3:GetBucketWebsite` are denied to
+the intern identity) — **confirm the public origin + any CF distribution with the admin.**
 
 ```bash
-# Replace <FRONTEND_BUCKET> and (optional) <CF_DIST_ID>. No frontend hosting
-# bucket is recorded in the repo — confirm it with the account admin.
-aws s3 sync frontend/out/ s3://<FRONTEND_BUCKET>/ --delete --profile <deploy> \
+# 0) BACK UP the current live build first (enables a true frontend rollback;
+#    the deploy below uses --delete which removes the old objects).
+aws s3 sync s3://form-pdf-poc-dev-frontend/ ./frontend-prod-backup/ --profile <deploy>
+
+# 1) Preview the change (read-only — safe):
+aws s3 sync frontend/out/ s3://form-pdf-poc-dev-frontend/ --delete --dryrun --profile <deploy>
+
+# 2) Deploy:
+aws s3 sync frontend/out/ s3://form-pdf-poc-dev-frontend/ --delete --profile <deploy> \
   --cache-control "public,max-age=300"
-# If CloudFront fronts the bucket, invalidate so the new build is served:
+
+# 3) If CloudFront fronts the bucket, invalidate so the new build is served:
 aws cloudfront create-invalidation --distribution-id <CF_DIST_ID> --paths "/*" --profile <deploy>
 ```
 
@@ -72,9 +85,9 @@ document set to `index.html` (one-time bucket config).
 1. **Flag rollback (instant, no redeploy):** rebuild with `NEXT_PUBLIC_TEXTRACT_ASYNC=false`
    and redeploy → 100% synchronous path. (If EC2 is down, this is only meaningful
    once EC2 is restored; otherwise rollback = redeploy the previous build.)
-2. **Build rollback:** keep the previous `out/` (or git tag) and re-`s3 sync` it:
+2. **Build rollback:** restore the pre-deploy snapshot from step 0 above:
    ```bash
-   aws s3 sync ./out-previous/ s3://<FRONTEND_BUCKET>/ --delete --profile <deploy>
+   aws s3 sync ./frontend-prod-backup/ s3://form-pdf-poc-dev-frontend/ --delete --profile <deploy>
    aws cloudfront create-invalidation --distribution-id <CF_DIST_ID> --paths "/*" --profile <deploy>
    ```
 3. Frontend is static + additive → no schema/state to roll back.

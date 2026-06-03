@@ -46,19 +46,25 @@ Browser ← job-status λ (poll) ← DynamoDB ;  Browser ← result-handler λ (
 
 ## Demo execution checklist
 
-1. [ ] Confirm green before the room: `.venv/Scripts/python.exe scripts/e2e_async_validate.py` → 14/14.
-2. [ ] DLQ depth 0; worker logs clean.
+1. [ ] Confirm green before the room — **live HTTP path** through API Gateway `/dev`:
+       `.venv/Scripts/python.exe scripts/e2e_live_api.py` → 14/14.
+       (Direct-invoke equivalent if the API edge is down: `scripts/e2e_async_validate.py`.)
+2. [ ] DLQ depth 0; queue drained; 0 stuck PROCESSING jobs; worker logs clean.
 3. [ ] Have a **pre-generated** `output.pdf` open as a guaranteed fallback.
-4. [ ] Live: upload `input/form.pdf` → narrate QUEUED → PROCESSING → SUCCEEDED.
+4. [ ] Live: upload `input/form.pdf` → narrate QUEUED → PROCESSING → SUCCEEDED (~9s).
 5. [ ] Open the result page; show the fillable PDF (click a field, type) + stats (12 fields, 1 table).
 6. [ ] (Optional) show DynamoDB row transitions and a worker log line for credibility.
+
+Live API base: `https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev`.
 
 ## Failure fallback strategy
 
 - **Live upload stalls/fails:** switch to the pre-generated `output.pdf` + the
-  `scripts/e2e_async_validate.py` transcript (14/14) as proof of the working path.
-- **API not reachable** (routes not yet wired): demo via the E2E harness (direct
-  Lambda invokes) — same chain, no API GW dependency — and show the architecture diagram.
+  `scripts/e2e_live_api.py` transcript (14/14) as proof of the working path.
+- **Browser CORS error** (origin not wired): run the demo from `http://localhost:3000`
+  (CORS verified) or via `scripts/e2e_live_api.py`; re-wire CORS for the demo origin.
+- **API edge down:** demo via `scripts/e2e_async_validate.py` (direct Lambda invokes) —
+  same pipeline, no API GW dependency — and show the architecture diagram.
 - **Textract slow:** it's normally 3–6s; if Textract throttles, the job retries
   automatically — narrate that as the resilience story rather than an error.
 
