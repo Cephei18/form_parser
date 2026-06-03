@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +18,23 @@ from src.textract_validators import build_validation_report
 logger = logging.getLogger("form_parser.pipeline.textract")
 
 
+def _preview_labels_enabled() -> bool:
+    """Whether to draw per-field text labels on the mapping.png preview.
+
+    Default True preserves the existing (validated) preview exactly. Set
+    FORM_PARSER_PREVIEW_LABELS=false for a clean, label-free preview (e.g. demos)
+    — boxes only. This affects ONLY the diagnostic preview image; the generated
+    output.pdf (form widgets) and the debug overlay are untouched.
+    """
+    return os.getenv("FORM_PARSER_PREVIEW_LABELS", "true").strip().lower() not in {"0", "false", "no", "off"}
+
+
 def _draw_mapping_preview(image_path: Path, mappings: list[dict[str, Any]], output_path: Path) -> None:
     image = cv2.imread(str(image_path))
     if image is None:
         raise RuntimeError(f"Unable to read source image for preview: {image_path}")
 
+    draw_labels = _preview_labels_enabled()
     for index, mapping in enumerate(mappings, start=1):
         color = (0, 180, 255) if mapping.get("field_type") == "checkbox" else (80, 180, 80)
         for box in mapping.get("field_bboxes", []) or []:
@@ -33,8 +46,9 @@ def _draw_mapping_preview(image_path: Path, mappings: list[dict[str, Any]], outp
             except (TypeError, ValueError):
                 continue
             cv2.rectangle(image, (x, y), (x + width, y + height), color, 2)
-            label = str(mapping.get("label", f"field_{index}"))[:60]
-            cv2.putText(image, label, (x, max(12, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
+            if draw_labels:
+                label = str(mapping.get("label", f"field_{index}"))[:60]
+                cv2.putText(image, label, (x, max(12, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(output_path), image):

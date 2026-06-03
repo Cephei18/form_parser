@@ -7,7 +7,8 @@
   Every action here is gated off the deploy identity (intern.form-pdf-poc is
   denied iam:*, apigateway:*, s3:PutBucketNotification/Cors, and most likely
   lambda:CreateEventSourceMapping/AddPermission — see docs/iam_permission_matrix.md).
-  Run this with a principal that holds those permissions.
+  The -Profile default is the locally-configured "form-pdf-poc"; override with
+  -Profile <admin> when running the privileged slices with an elevated identity.
 
   Each slice is a switch so it can be applied and verified independently. With
   no switch, -All runs every slice in dependency order. The script is written to
@@ -23,16 +24,16 @@
     -All        all of the above
 
 .EXAMPLE
-  pwsh scripts/wire_async_infra.ps1 -All -FrontendOrigin https://app.example.com
-  pwsh scripts/wire_async_infra.ps1 -ApiRoutes
-  pwsh scripts/wire_async_infra.ps1 -Esm
+  powershell -ExecutionPolicy Bypass -File .\scripts\wire_async_infra.ps1 -FrontendOrigin http://localhost:3000
+  pwsh scripts/wire_async_infra.ps1 -All -FrontendOrigin https://app.example.com -Profile form-pdf-poc-admin
+  pwsh scripts/wire_async_infra.ps1 -Esm    # slices that don't touch CORS need no -FrontendOrigin
 
 .NOTES
   Rollback pointers are printed by each slice. Master user-facing rollback is the
   frontend flag NEXT_PUBLIC_TEXTRACT_ASYNC=false (no infra teardown needed).
 #>
 param(
-  [string]$Profile         = "form-pdf-poc-admin",
+  [string]$Profile         = "form-pdf-poc",
   [string]$Region          = "ap-south-1",
   [string]$AccountId       = "637423601842",
   [string]$ApiId           = "58is64i9kb",
@@ -41,7 +42,7 @@ param(
   [string]$ProcessedBucket = "form-pdf-poc-dev-processed-documents",
   [string]$QueueArn        = "arn:aws:sqs:ap-south-1:637423601842:form-pdf-poc-dev-processing-queue",
   [string]$DdbTable        = "form-pdf-poc-dev-jobs",
-  [string]$FrontendOrigin  = "https://REPLACE_WITH_FRONTEND_ORIGIN",
+  [string]$FrontendOrigin  = "",
   [int]$MaxConcurrency     = 5,
   [switch]$Role,
   [switch]$WorkerEnv,
@@ -66,7 +67,36 @@ function Tolerate($block) { try { & $block } catch { Write-Host "    (tolerated)
 
 function FnArn($name) { "arn:aws:lambda:${Region}:${AccountId}:function:$name" }
 
+# Write UTF-8 WITHOUT a BOM. Windows PowerShell 5.1's `Out-File -Encoding utf8`
+# emits a BOM (EF BB BF), which the AWS CLI's JSON parser rejects ("ï»¿ ...").
+# .NET UTF8Encoding($false) writes no BOM and is identical on PS 5.1 and 7+.
+function Write-Utf8NoBom([string]$Path, [string]$Content) {
+  [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+# Validate + normalize the frontend origin used for API/bucket CORS. Accepts
+# http(s)://host[:port] with no path (e.g. http://localhost:3000 for local dev,
+# https://app.example.com for prod). Throws a clear, actionable error otherwise.
+function Resolve-FrontendOrigin([string]$Origin) {
+  $o = "$Origin".Trim().TrimEnd('/')
+  if (-not $o -or $o -like '*REPLACE_WITH*') {
+    throw "FrontendOrigin is required for the -ApiRoutes/-Cors slices. Pass -FrontendOrigin <http(s)://host[:port]>, e.g. -FrontendOrigin http://localhost:3000 (local dev) or https://your-app (prod)."
+  }
+  if ($o -notmatch '^(https?)://[A-Za-z0-9.\-]+(:\d+)?$') {
+    throw "FrontendOrigin '$o' is not a valid origin. Expected scheme://host[:port] with no path, e.g. http://localhost:3000 or https://app.example.com."
+  }
+  return $o
+}
+
 if (-not ($Role -or $WorkerEnv -or $ApiRoutes -or $S3Notify -or $Esm -or $Cors)) { $All = $true }
+
+# Validate the frontend origin once, up front, but only when a slice that uses
+# it (API CORS or bucket CORS) is actually selected — so -Esm/-Role/-S3Notify
+# runs never require it.
+if ($ApiRoutes -or $Cors -or $All) {
+  $FrontendOrigin = Resolve-FrontendOrigin $FrontendOrigin
+  Info "Frontend origin for CORS: $FrontendOrigin"
+}
 
 # --- Slice: exec role policy -------------------------------------------------
 if ($Role -or $All) {
@@ -133,7 +163,7 @@ if ($ApiRoutes -or $All) {
     MaxAge       = 300
   } | ConvertTo-Json -Compress
   $corsTmp = Join-Path ([System.IO.Path]::GetTempPath()) "api_cors.json"
-  $corsCfg | Out-File -FilePath $corsTmp -Encoding utf8
+  Write-Utf8NoBom $corsTmp $corsCfg
   aws apigatewayv2 update-api --api-id $ApiId --cors-configuration "file://$corsTmp" `
     --profile $Profile --region $Region | Out-Null
   Info "Rollback: aws apigatewayv2 delete-route / delete-integration for the IDs above."
@@ -158,7 +188,7 @@ if ($S3Notify -or $All) {
     )
   } | ConvertTo-Json -Depth 10
   $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "raw_notify.json"
-  $cfg | Out-File -FilePath $tmp -Encoding utf8
+  Write-Utf8NoBom $tmp $cfg
   aws s3api put-bucket-notification-configuration --bucket $RawBucket `
     --notification-configuration "file://$tmp" --profile $Profile --region $Region
   Info "Rollback: put-bucket-notification-configuration with an empty {} (stops enqueues instantly)."
@@ -179,17 +209,17 @@ if ($Esm -or $All) {
 
 # --- Slice: bucket CORS ------------------------------------------------------
 if ($Cors -or $All) {
-  if ($FrontendOrigin -like "*REPLACE_WITH*") { throw "Pass -FrontendOrigin <https://your-app> for CORS." }
+  # $FrontendOrigin is already validated/normalized up front (Resolve-FrontendOrigin).
   Step "Applying raw-bucket CORS (browser POST/PUT)"
   $rawCors = (Get-Content (Join-Path $RepoRoot "infra/raw_bucket_cors.json") -Raw).Replace("https://REPLACE_WITH_FRONTEND_ORIGIN", $FrontendOrigin)
   $rawTmp = Join-Path ([System.IO.Path]::GetTempPath()) "raw_cors.json"
-  $rawCors | Out-File -FilePath $rawTmp -Encoding utf8
+  Write-Utf8NoBom $rawTmp $rawCors
   aws s3api put-bucket-cors --bucket $RawBucket --cors-configuration "file://$rawTmp" --profile $Profile --region $Region
 
   Step "Applying processed-bucket CORS (browser GET)"
   $procCors = (Get-Content (Join-Path $RepoRoot "infra/processed_bucket_cors.json") -Raw).Replace("https://REPLACE_WITH_FRONTEND_ORIGIN", $FrontendOrigin)
   $procTmp = Join-Path ([System.IO.Path]::GetTempPath()) "proc_cors.json"
-  $procCors | Out-File -FilePath $procTmp -Encoding utf8
+  Write-Utf8NoBom $procTmp $procCors
   aws s3api put-bucket-cors --bucket $ProcessedBucket --cors-configuration "file://$procTmp" --profile $Profile --region $Region
   Info "Rollback: aws s3api delete-bucket-cors --bucket <bucket>"
 }
