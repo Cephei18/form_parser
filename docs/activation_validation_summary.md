@@ -81,37 +81,45 @@ teardown. Full ladder in `docs/go_live_checklist.md`.
   - `/result/` → 200; app chunk serves the `/dev` async URL; old chunks 404 (clean `--delete`).
 - **Public origin:** `http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com` (S3 website endpoint, HTTP). HTTP page → HTTPS API/S3 calls is allowed (no mixed-content block).
 
-### THE ONE REMAINING GATE — production CORS (admin)
+### Production CORS — DONE ✅ (2026-06-04)
 
-CORS is wired for `http://localhost:3000` only. Verified the deployed origin is **blocked**:
-API GW preflight returns no `access-control-allow-origin`; both buckets return 403. Until
-this is wired, the deployed site fails in the browser at the first upload.
+IAM perms were granted (`apigateway:GET/update-api`, `s3:Get/PutBucketCors` now work).
+CORS was applied **additively** (kept `http://localhost:3000`, **added** the prod origin),
+preserving every existing field — non-destructive, no route/integration changes:
+- API Gateway `AllowOrigins`: `[localhost:3000, <prod>]`
+- raw bucket (POST/PUT) + processed bucket (GET): both origins.
 
-**One route-safe command (elevated identity)** — now updates API Gateway CORS + raw +
-processed bucket CORS in a single run (the `-Cors` slice was hardened to also set API GW
-CORS without re-creating routes):
+Validated on all three layers, both origins:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\wire_async_infra.ps1 `
-  -Cors -FrontendOrigin http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com `
-  -Profile <admin>
-```
+| Layer | Prod origin | localhost:3000 |
+|---|---|---|
+| API GW `/dev/uploads` preflight | 204 + ACAO=prod | 204 + ACAO=localhost |
+| API GW actual POST response | 200 + ACAO=prod | — |
+| raw bucket preflight (POST) | 200 + ACAO=prod | 200 + ACAO=localhost |
+| processed bucket preflight (GET) | 200 + ACAO=prod | 200 + ACAO=localhost |
 
-> This sets prod-origin CORS (replaces localhost). To keep localhost dev too, re-run with
-> `-FrontendOrigin http://localhost:3000` afterward, or set both origins directly via
-> `aws apigatewayv2 update-api` + `aws s3api put-bucket-cors` with a 2-element origins list.
+Fresh full pipeline E2E after cutover: **14/14** (QUEUED→PROCESSING→SUCCEEDED ~8s, valid PDF,
+single worker execution, 0 stuck, DLQ 0).
 
-### Validate after the admin runs it (read-only — I can run these)
+**The deployed site is now fully live in the browser.** Open
+`http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com`, upload a form,
+watch the async flow, download the PDF.
+
+### Known hardening item (not a blocker)
+The frontend is served over the **S3 website endpoint (HTTP)**. It works (HTTP page →
+HTTPS API/S3 calls are allowed; no mixed-content block), but browsers mark it "Not Secure".
+For a hardened public deployment, front the bucket with CloudFront + HTTPS (+ a custom
+domain) and re-run the CORS cutover for that HTTPS origin.
+
+### Re-validate CORS anytime (read-only)
 
 ```bash
 SITE=http://form-pdf-poc-dev-frontend.s3-website.ap-south-1.amazonaws.com
 A=https://58is64i9kb.execute-api.ap-south-1.amazonaws.com/dev
-curl -i -X OPTIONS "$A/uploads" -H "Origin: $SITE" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"   # expect ACAO: $SITE
-curl -i -X OPTIONS "https://form-pdf-poc-dev-raw-documents.s3.amazonaws.com/"       -H "Origin: $SITE" -H "Access-Control-Request-Method: POST" # expect 200 + ACAO
-curl -i -X OPTIONS "https://form-pdf-poc-dev-processed-documents.s3.amazonaws.com/" -H "Origin: $SITE" -H "Access-Control-Request-Method: GET"  # expect 200 + ACAO
+curl -i -X OPTIONS "$A/uploads" -H "Origin: $SITE" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"
+curl -i -X OPTIONS "https://form-pdf-poc-dev-raw-documents.s3.amazonaws.com/"       -H "Origin: $SITE" -H "Access-Control-Request-Method: POST"
+curl -i -X OPTIONS "https://form-pdf-poc-dev-processed-documents.s3.amazonaws.com/" -H "Origin: $SITE" -H "Access-Control-Request-Method: GET"
 ```
-
-Then open the site, upload `input/form.pdf`, watch QUEUED→PROCESSING→SUCCEEDED, download the PDF.
 
 ### Frontend rollback (if needed)
 
