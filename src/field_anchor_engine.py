@@ -6,10 +6,12 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
-from typing import Any
+from typing import Any, Callable
 
 import cv2
 import numpy as np
+
+from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
 
 logger = logging.getLogger("form_parser.field_anchor")
 
@@ -337,6 +339,28 @@ def _visual_text_boxes(blocks: list[dict[str, Any]], page_by_id: dict[str, int])
     return text_boxes
 
 
+def _line_boxes(blocks: list[dict[str, Any]], page_by_id: dict[str, int]) -> list[dict[str, Any]]:
+    """LINE-level text boxes used for section-heading detection. LINE blocks
+    carry the full heading text (their WORD children joined), which is what the
+    section detector needs."""
+    lines: list[dict[str, Any]] = []
+    for block in blocks:
+        if block.get("BlockType") != "LINE":
+            continue
+        bbox = _block_bbox(block)
+        if not bbox:
+            continue
+        lines.append(
+            {
+                "block_id": block.get("Id"),
+                "text": _clean_text(block.get("Text")),
+                "bbox": bbox,
+                "page": _block_page(block, page_by_id),
+            }
+        )
+    return lines
+
+
 def _build_page_metrics(text_boxes: list[dict[str, Any]]) -> dict[int, dict[str, float]]:
     by_page: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for item in text_boxes:
@@ -397,7 +421,7 @@ def _text_count_inside(box: dict[str, float], text_boxes: list[dict[str, Any]], 
     return count
 
 
-def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]]) -> dict[str, Any]:
+def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]], page: int = 1) -> dict[str, Any]:
     image = cv2.imread(str(image_path))
     if image is None:
         logger.warning("[anchor] unable to read image for visual feature detection: %s", image_path)
@@ -423,7 +447,7 @@ def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]]) 
         underlines.append(
             {
                 "bbox": box,
-                "page": 1,
+                "page": page,
                 "type": "underline",
                 "confidence": 0.76,
                 "length": round(box["width"], 6),
@@ -447,12 +471,12 @@ def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]]) 
         if rectangularity < 0.16:
             continue
         box = _feature_box_from_pixels(x, y, width, height, image_width, image_height)
-        text_count = _text_count_inside(box, text_boxes, page=1, padding=0.002)
+        text_count = _text_count_inside(box, text_boxes, page=page, padding=0.002)
         aspect_ratio = width / max(float(height), 1.0)
         empty_boxes.append(
             {
                 "bbox": box,
-                "page": 1,
+                "page": page,
                 "type": "empty_rectangle",
                 "confidence": round(_clamp(0.62 + rectangularity * 0.28 - min(text_count, 3) * 0.08), 4),
                 "text_count": text_count,
@@ -466,6 +490,34 @@ def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]]) 
         "empty_boxes": _dedupe_feature_boxes(empty_boxes),
         "image_size": {"width": image_width, "height": image_height},
     }
+
+
+def _detect_visual_features_for_pages(
+    page_images: dict[int, Path],
+    text_boxes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Run CV underline/rectangle detection once per page and tag every feature
+    with its page number. Page N's features come from Page N's raster, so a
+    field on page N can only ever anchor onto page N visual features (the
+    candidate builders already filter by ``feature["page"] == page``).
+
+    Returns the same shape as ``_detect_visual_features`` but with an
+    ``image_sizes`` map (page -> {width, height}) instead of a single
+    ``image_size``.
+    """
+    underlines: list[dict[str, Any]] = []
+    empty_boxes: list[dict[str, Any]] = []
+    image_sizes: dict[int, dict[str, int]] = {}
+
+    for page in sorted(page_images):
+        features = _detect_visual_features(Path(page_images[page]), text_boxes, page=page)
+        underlines.extend(features.get("underlines", []) or [])
+        empty_boxes.extend(features.get("empty_boxes", []) or [])
+        size = features.get("image_size")
+        if size:
+            image_sizes[page] = size
+
+    return {"underlines": underlines, "empty_boxes": empty_boxes, "image_sizes": image_sizes}
 
 
 def _dedupe_feature_boxes(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -664,8 +716,34 @@ def _value_block_candidates(
     return candidates
 
 
-def _matching_label_cell(label: str, page: int, label_box: dict[str, float], cells: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _cell_in_section_band(cell: dict[str, Any], section_band: dict[str, Any] | None) -> bool:
+    """True when a table cell's vertical centre falls inside the field's section
+    band (with a small tolerance). Used to scope label-cell matching so a label
+    only matches cells inside its own section, not an identically-named cell in
+    another section."""
+    if not section_band:
+        return True
+    if int(cell.get("page") or 1) != int(section_band.get("page") or 1):
+        return False
+    box = cell.get("bbox") or {}
+    center_y = float(box.get("y", 0.0)) + float(box.get("height", 0.0)) / 2.0
+    tolerance = 0.01
+    return (float(section_band["y_start"]) - tolerance) <= center_y <= (float(section_band["y_end"]) + tolerance)
+
+
+def _matching_label_cell(
+    label: str,
+    page: int,
+    label_box: dict[str, float],
+    cells: list[dict[str, Any]],
+    section_band: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     label_norm = _field_label_slug(label)
+    # Scope to the field's section band when known; fall back to the full cell
+    # set if scoping leaves nothing (never lose a match we would have made).
+    if section_band:
+        scoped = [cell for cell in cells if _cell_in_section_band(cell, section_band)]
+        cells = scoped or cells
     best: tuple[float, dict[str, Any]] | None = None
     for cell in cells:
         if int(cell.get("page") or 1) != page:
@@ -690,8 +768,9 @@ def _table_cell_candidates(
     label_box: dict[str, float],
     cells: list[dict[str, Any]],
     multiline_hint: bool,
+    section_band: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    label_cell = _matching_label_cell(label, page, label_box, cells)
+    label_cell = _matching_label_cell(label, page, label_box, cells, section_band)
     if not label_cell:
         return []
 
@@ -988,6 +1067,7 @@ def _select_answer_region(
     visual_features: dict[str, Any],
     text_boxes: list[dict[str, Any]],
     metrics: dict[str, float],
+    section_band: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], str, list[str], list[dict[str, Any]]]:
     preliminary_multiline = "\n" in value or _contains_any(label.lower(), MULTILINE_KEYWORDS)
     field_type, type_reasons = _classify_field(label, value, None, metrics)
@@ -1002,7 +1082,7 @@ def _select_answer_region(
             return signature, field_type, type_reasons, [signature]
 
     candidates: list[dict[str, Any]] = []
-    candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline))
+    candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline, section_band))
     candidates.extend(_value_block_candidates(field_item, blocks_by_id, page_by_id, label_box, page))
     candidates.extend(_underline_candidates(label_box, page, visual_features, metrics))
     candidates.extend(_rectangle_candidates(label_box, page, visual_features, metrics))
@@ -1063,8 +1143,7 @@ def _checkbox_mapping(
     checkbox: dict[str, Any],
     blocks_by_id: dict[str, dict[str, Any]],
     page_by_id: dict[str, int],
-    image_width: int,
-    image_height: int,
+    page_px: Callable[[int], tuple[int, int]],
     index: int,
 ) -> dict[str, Any] | None:
     selection_id = checkbox.get("selection_element_id")
@@ -1093,7 +1172,7 @@ def _checkbox_mapping(
         "candidate_score": round(confidence or 0.72, 4),
         "confidence_class": _confidence_class(confidence or 0.72),
         "multiline_group_size": 1,
-        "field_bboxes": [_box_to_pixel_box(bbox, image_width, image_height)],
+        "field_bboxes": [_box_to_pixel_box(bbox, *page_px(page))],
         "source": "textract_anchor",
         "anchoring": {
             "anchor_type": "checkbox_region",
@@ -1106,20 +1185,54 @@ def build_anchored_mappings(
     raw_response: dict[str, Any],
     parsed: dict[str, Any],
     image_path: str | Path,
+    page_images: dict[int, str | Path] | None = None,
 ) -> dict[str, Any]:
     """Estimate answer regions between Textract parsing and PDF rendering.
 
     The output keeps the API-compatible mapping contract while making `bbox`
     and `field_bboxes` refer to the answer/input region, not the label.
+
+    ``page_images`` maps a 1-based page number to the rasterised image for that
+    page. When omitted, the engine behaves exactly as before (single page-1
+    image), preserving the legacy/rollback contract. When supplied, CV visual
+    features are detected per page and every page's fields only ever anchor onto
+    that page's features.
     """
     image_path = Path(image_path)
+    # Normalise the page->image map. Default keeps the historical single-image
+    # (page 1) behaviour byte-for-byte.
+    if page_images:
+        page_images_norm: dict[int, Path] = {int(p): Path(img) for p, img in page_images.items()}
+    else:
+        page_images_norm = {1: image_path}
+
     blocks = raw_response.get("Blocks", []) or []
     blocks_by_id = {block.get("Id"): block for block in blocks if block.get("Id")}
     page_by_id = _build_page_index(blocks)
     text_cache: dict[str, str] = {}
     text_boxes = _visual_text_boxes(blocks, page_by_id)
     metrics_by_page = _build_page_metrics(text_boxes)
-    visual_features = _detect_visual_features(image_path, text_boxes)
+
+    # --- Document hierarchy (Phase 2.2) ---------------------------------------
+    # Detect section headings and build a reading-order owner index. Field keys
+    # are excluded from heading candidacy so a label is never mistaken for a
+    # section. Heading-less documents yield zero sections, so every item falls to
+    # the document root and behaviour is identical to before (backward compatible).
+    lines = _line_boxes(blocks, page_by_id)
+    field_key_slugs = {
+        _field_label_slug(field_item.get("key"))
+        for field_item in (parsed.get("field_items") or [])
+        if field_item.get("key")
+    }
+    sections = detect_sections(lines, field_key_slugs, metrics_by_page)
+    section_index = SectionIndex(sections)
+
+    detected = _detect_visual_features_for_pages(page_images_norm, text_boxes)
+    visual_features: dict[str, Any] = {
+        "underlines": detected.get("underlines", []),
+        "empty_boxes": detected.get("empty_boxes", []),
+    }
+    image_sizes: dict[int, dict[str, int]] = detected.get("image_sizes", {}) or {}
     # Batch B: peel decorative/photo placeholders out of the empty-rectangle pool
     # so they can never be selected as an input region for a neighbouring label.
     photo_regions, visual_features["empty_boxes"] = _split_photo_regions(visual_features.get("empty_boxes", []))
@@ -1128,16 +1241,26 @@ def build_anchored_mappings(
     # Canonical checkbox geometry for token-checkbox deduplication (see below).
     selection_regions = _selection_regions(blocks, page_by_id)
 
-    image_size = visual_features.get("image_size")
-    if image_size:
-        image_width = int(image_size["width"])
-        image_height = int(image_size["height"])
+    # Per-page pixel dimensions for the (diagnostic) pixel `field_bboxes`. The
+    # rendered widgets use the page-local fraction `bbox`, so a wrong size here
+    # never moves a widget — but we still resolve the correct page so previews
+    # and overlays line up. Fall back to page 1, then to reading the image.
+    if image_sizes:
+        _default_size = image_sizes.get(1) or next(iter(image_sizes.values()))
+        image_width = int(_default_size["width"])
+        image_height = int(_default_size["height"])
     else:
         image = cv2.imread(str(image_path))
         if image is None:
             image_width, image_height = 1, 1
         else:
             image_height, image_width = image.shape[:2]
+
+    def _page_px(page: int) -> tuple[int, int]:
+        size = image_sizes.get(int(page))
+        if size:
+            return int(size["width"]), int(size["height"])
+        return image_width, image_height
 
     mappings: list[dict[str, Any]] = []
     anchor_records: list[dict[str, Any]] = []
@@ -1158,6 +1281,10 @@ def build_anchored_mappings(
         page = _field_item_page(field_item, blocks_by_id, page_by_id, default=1)
         metrics = metrics_by_page.get(page, metrics_by_page.get(1, {}))
 
+        # Section ownership is resolved from the label's reading position.
+        owner_section = section_index.owner(page, float(label_box["y"]))
+        section_band = section_index.band(owner_section)
+
         selected, field_type, type_reasons, candidates = _select_answer_region(
             label,
             value,
@@ -1170,6 +1297,7 @@ def build_anchored_mappings(
             visual_features,
             text_boxes,
             metrics,
+            section_band,
         )
 
         answer_box = selected["bbox"]
@@ -1219,6 +1347,8 @@ def build_anchored_mappings(
         mapping = {
             "field_id": f"anchored_field_{index}",
             "label": label,
+            "qualified_label": qualify_label(owner_section, label),
+            "section": section_summary(owner_section),
             "value": value,
             "field_type": field_type,
             "bbox": _round_box(answer_box),
@@ -1233,7 +1363,7 @@ def build_anchored_mappings(
             "candidate_score": round(confidence, 4),
             "confidence_class": _confidence_class(confidence),
             "multiline_group_size": multiline_group_size,
-            "field_bboxes": [_box_to_pixel_box(answer_box, image_width, image_height)],
+            "field_bboxes": [_box_to_pixel_box(answer_box, *_page_px(page))],
             "source": "textract_anchor",
             # Batch A: when the answer sits on an already-printed line/box/cell,
             # signal the renderer to stay borderless so it does not stack a
@@ -1257,6 +1387,8 @@ def build_anchored_mappings(
                 "label": label,
                 "field_type": field_type,
                 "page": page,
+                "section_id": owner_section.get("section_id"),
+                "section_title": owner_section.get("title"),
                 "label_bbox": mapping["label_bbox"],
                 "answer_bbox": mapping["bbox"],
                 "anchor_type": selected.get("anchor_type"),
@@ -1276,9 +1408,16 @@ def build_anchored_mappings(
             if DROP_UNASSOCIATED_CHECKBOXES:
                 logger.info("[anchor] drop unassociated checkbox id=%s (opt-in)", checkbox.get("selection_element_id"))
                 continue
-        checkbox_mapping = _checkbox_mapping(checkbox, blocks_by_id, page_by_id, image_width, image_height, index)
+        checkbox_mapping = _checkbox_mapping(checkbox, blocks_by_id, page_by_id, _page_px, index)
         if checkbox_mapping is None:
             continue
+        # Checkbox ownership inherits its section from the glyph's reading
+        # position, so option lists ("Single / Joint / Anyone or Survivor")
+        # resolve under their section ("Holding Mode") even when Textract leaves
+        # the checkbox unassociated.
+        cb_owner = section_index.owner(checkbox_mapping["page"], float(checkbox_mapping["bbox"]["y"]))
+        checkbox_mapping["section"] = section_summary(cb_owner)
+        checkbox_mapping["qualified_label"] = qualify_label(cb_owner, checkbox_mapping["label"])
         mappings.append(checkbox_mapping)
         anchor_records.append(
             {
@@ -1286,6 +1425,8 @@ def build_anchored_mappings(
                 "label": checkbox_mapping["label"],
                 "field_type": "checkbox",
                 "page": checkbox_mapping["page"],
+                "section_id": cb_owner.get("section_id"),
+                "section_title": cb_owner.get("title"),
                 "label_bbox": None,
                 "answer_bbox": checkbox_mapping["bbox"],
                 "anchor_type": "checkbox_region",
@@ -1306,9 +1447,12 @@ def build_anchored_mappings(
             continue
         page = int(feature.get("page") or 1)
         conf = round(_clamp(float(feature.get("confidence") or 0.7)), 4)
+        photo_owner = section_index.owner(page, float(box["y"]))
         photo_mapping = {
             "field_id": f"photo_region_{p_index}",
             "label": "Photograph",
+            "qualified_label": qualify_label(photo_owner, "Photograph"),
+            "section": section_summary(photo_owner),
             "value": "",
             "field_type": "photo",
             "bbox": _round_box(box),
@@ -1319,7 +1463,7 @@ def build_anchored_mappings(
             "candidate_score": conf,
             "confidence_class": _confidence_class(conf),
             "multiline_group_size": 1,
-            "field_bboxes": [_box_to_pixel_box(box, image_width, image_height)],
+            "field_bboxes": [_box_to_pixel_box(box, *_page_px(page))],
             "source": "textract_anchor",
             "render_border": False,
             "anchoring": {
@@ -1336,6 +1480,8 @@ def build_anchored_mappings(
                 "label": "Photograph",
                 "field_type": "photo",
                 "page": page,
+                "section_id": photo_owner.get("section_id"),
+                "section_title": photo_owner.get("title"),
                 "label_bbox": None,
                 "answer_bbox": photo_mapping["bbox"],
                 "anchor_type": "photo_region",
@@ -1347,6 +1493,66 @@ def build_anchored_mappings(
 
     anchor_type_counts = Counter(record["anchor_type"] for record in anchor_records)
     field_type_counts = Counter(record["field_type"] for record in anchor_records)
+    fields_per_page = Counter(int(record.get("page") or 1) for record in anchor_records)
+    analyzed_pages = sorted({int(item.get("page") or 1) for item in text_boxes}) or [1]
+
+    # --- Section hierarchy diagnostics (Task 7 table ownership + Task 8) -------
+    # Tables inherit a section from their top edge's reading position. This is
+    # ownership only — no table semantics are computed in this phase.
+    table_sections: dict[str, dict[str, Any]] = {}
+    for table in parsed.get("tables", []) or []:
+        table_box = _parsed_geometry_bbox(table.get("geometry") or {})
+        if not table_box:
+            continue
+        table_owner = section_index.owner(int(table.get("page") or 1), float(table_box["y"]))
+        table_sections[str(table.get("table_block_id"))] = section_summary(table_owner)
+
+    section_field_counts: dict[str, int] = defaultdict(int)
+    section_checkbox_counts: dict[str, int] = defaultdict(int)
+    section_pages: dict[str, set] = defaultdict(set)
+    for record in anchor_records:
+        sid = record.get("section_id") or "document"
+        if record.get("field_type") == "checkbox":
+            section_checkbox_counts[sid] += 1
+        else:
+            section_field_counts[sid] += 1
+        section_pages[sid].add(int(record.get("page") or 1))
+
+    orphan_field_count = sum(
+        1 for record in anchor_records if (record.get("section_id") or "document") == "document"
+    )
+
+    section_summaries: list[dict[str, Any]] = []
+    for section in sections:
+        sid = section["section_id"]
+        section_summaries.append(
+            {
+                **section_summary(section),
+                "y_start": round(float(section["y_start"]), 4),
+                "y_end": round(float(section["y_end"]), 4),
+                "reasons": section.get("reasons", []),
+                "field_count": section_field_counts.get(sid, 0),
+                "checkbox_count": section_checkbox_counts.get(sid, 0),
+                "table_count": sum(1 for value in table_sections.values() if value.get("section_id") == sid),
+                "pages": sorted(section_pages.get(sid, set())),
+            }
+        )
+
+    section_diagnostics = {
+        "section_count": len(sections),
+        "section_types_detected": sorted({section["type"] for section in sections}),
+        "sections": section_summaries,
+        "fields_per_section": {
+            section["title"]: section_field_counts.get(section["section_id"], 0)
+            + section_checkbox_counts.get(section["section_id"], 0)
+            for section in sections
+        },
+        "orphan_field_count": orphan_field_count,
+        "pages_per_section": {
+            section["section_id"]: sorted(section_pages.get(section["section_id"], set())) for section in sections
+        },
+        "table_sections": table_sections,
+    }
     label_overlap_count = sum(
         1
         for record in anchor_records
@@ -1362,6 +1568,11 @@ def build_anchored_mappings(
     diagnostics = {
         "engine": "semantic_visual_anchor",
         "field_count": len(anchor_records),
+        "page_count": len(page_images_norm),
+        "pages_rasterized": sorted(page_images_norm.keys()),
+        "analyzed_pages": analyzed_pages,
+        "fields_per_page": {str(page): count for page, count in sorted(fields_per_page.items())},
+        "hierarchy": section_diagnostics,
         "fillable_field_count": sum(1 for mapping in mappings if mapping.get("field_type") != "photo"),
         "photo_field_count": field_type_counts.get("photo", 0),
         "checkbox_field_count": field_type_counts.get("checkbox", 0),
@@ -1388,6 +1599,7 @@ def build_anchored_mappings(
         "mappings": mappings,
         "field_objects": anchor_records,
         "diagnostics": diagnostics,
+        "sections": sections,
         "visual_features": {
             "underlines": visual_features.get("underlines", []),
             "empty_boxes": visual_features.get("empty_boxes", []),

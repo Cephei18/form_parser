@@ -157,6 +157,21 @@ def _field_type(mapping, box=None) -> str:
     return "text"
 
 
+def _field_tooltip(mapping, default: str) -> str:
+    """Prefer the section-qualified label ("Applicant Details › Name") for the
+    widget tooltip so repeated labels are distinguishable to the end user. Falls
+    back to the raw label, keeping legacy/OCR mappings (no qualified_label)
+    unchanged."""
+    if isinstance(mapping, dict):
+        qualified = mapping.get("qualified_label")
+        if qualified:
+            return str(qualified)
+        label = mapping.get("label")
+        if label:
+            return str(label)
+    return default
+
+
 def _checkbox_is_checked(mapping) -> bool:
     if not isinstance(mapping, dict):
         return False
@@ -328,10 +343,26 @@ def _verify_output_writable(output: Path) -> None:
             pass
 
 
-def create_pdf_with_fields(image_path, mappings, output_path):
+def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
+    """Render an empty fillable-form PDF.
+
+    ``page_images`` optionally maps a 1-based page number to that page's
+    rasterised background image. When omitted, every page uses ``image_path``
+    (the historical single-background behaviour) so the legacy OCR path and the
+    single-page Textract path are unchanged. When supplied, each page is drawn
+    on its own background, the page count covers every rasterised page (even
+    pages with zero detected fields), and each page's widgets are placed using
+    that page's coordinate scale.
+    """
     started = time.perf_counter()
     output = Path(output_path)
-    logger.info("[pdf] start create_pdf_with_fields image=%s output=%s mappings=%s", image_path, output, len(mappings or []))
+    logger.info(
+        "[pdf] start create_pdf_with_fields image=%s output=%s mappings=%s page_images=%s",
+        image_path,
+        output,
+        len(mappings or []),
+        len(page_images or {}),
+    )
 
     logger.info("[pdf] verify output path writable start")
     _verify_output_writable(output)
@@ -345,16 +376,25 @@ def create_pdf_with_fields(image_path, mappings, output_path):
 
     page_width, page_height = letter
 
-    logger.info("[pdf] image reader init start")
-    image_reader = ImageReader(image_path)
-    image_width, image_height = image_reader.getSize()
-    if image_width <= 0 or image_height <= 0:
-        raise RuntimeError(f"Invalid source image size: {image_width}x{image_height}")
-    logger.info("[pdf] image reader init end size=%sx%s", image_width, image_height)
+    # Per-page background resolver. Each distinct background image is opened once
+    # and its page-fill scale cached. With no page_images map every page falls
+    # back to ``image_path`` (legacy single-background behaviour, byte-identical).
+    page_image_map = {int(p): img for p, img in (page_images or {}).items()}
+    _bg_cache: dict[str, tuple] = {}
 
-    # Stretch background image to page and scale line coordinates accordingly.
-    scale_x = page_width / float(image_width)
-    scale_y = page_height / float(image_height)
+    def _background(page_number: int):
+        source = page_image_map.get(int(page_number), image_path)
+        key = str(source)
+        if key not in _bg_cache:
+            logger.info("[pdf] image reader init start page=%s src=%s", page_number, key)
+            reader = ImageReader(source)
+            img_w, img_h = reader.getSize()
+            if img_w <= 0 or img_h <= 0:
+                raise RuntimeError(f"Invalid source image size: {img_w}x{img_h} ({key})")
+            # Stretch background image to page; scale legacy pixel coords to match.
+            _bg_cache[key] = (reader, img_w, img_h, page_width / float(img_w), page_height / float(img_h))
+            logger.info("[pdf] image reader init end page=%s size=%sx%s", page_number, img_w, img_h)
+        return _bg_cache[key]
 
     mappings_by_page = defaultdict(list)
     for index, mapping in enumerate(mappings or [], start=1):
@@ -363,8 +403,12 @@ def create_pdf_with_fields(image_path, mappings, output_path):
             continue
         mappings_by_page[_safe_page(mapping)].append((index, mapping))
 
-    page_numbers = sorted(mappings_by_page) or [1]
+    # Render EVERY rasterised page (so a page with a background but no detected
+    # fields still produces a page) AND every page that carries widgets. This is
+    # what guarantees render-page-count == source-page-count.
+    page_numbers = sorted(set(mappings_by_page) | set(page_image_map)) or [1]
     for page_position, page_number in enumerate(page_numbers, start=1):
+        image_reader, image_width, image_height, scale_x, scale_y = _background(page_number)
         logger.info("[pdf] draw background start page=%s", page_number)
         c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
         logger.info("[pdf] draw background end page=%s", page_number)
@@ -413,7 +457,7 @@ def create_pdf_with_fields(image_path, mappings, output_path):
                     c.acroForm.checkbox(
                         checked=_checkbox_is_checked(mapping),
                         name=field_name,
-                        tooltip=mapping.get("label", "Checkbox"),
+                        tooltip=_field_tooltip(mapping, "Checkbox"),
                         x=checkbox_x,
                         y=checkbox_y,
                         size=size,
@@ -437,7 +481,7 @@ def create_pdf_with_fields(image_path, mappings, output_path):
                     border_style, border_width = _text_widget_style(mapping, box, widget_height)
                     c.acroForm.textfield(
                         name=field_name,
-                        tooltip=mapping.get("label", "Field"),
+                        tooltip=_field_tooltip(mapping, "Field"),
                         x=widget_x,
                         y=widget_y,
                         width=widget_width,

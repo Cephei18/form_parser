@@ -16,10 +16,11 @@ import type { JobStatus, ProcessingMode, UploadSessionData } from "@/lib/types";
 // the synchronous rule/ml OCR modes depend on EC2, which is stopped/deprecated, so
 // exposing them would route real users to a dead endpoint. They reappear automatically
 // when the flag is off (instant rollback) or when EC2 is restored. OCR code is untouched.
-const MODE_OPTIONS: ProcessingMode[] = TEXTRACT_ASYNC_ENABLED
-  ? ["textract"]
-  : ["rule", "ml"];
-const DEFAULT_MODE: ProcessingMode = TEXTRACT_ASYNC_ENABLED ? "textract" : "rule";
+// Force the UI to use the Textract pipeline by default for local development.
+// This ensures uploads default to the Textract engine regardless of the
+// async serverless flag.
+const MODE_OPTIONS: ProcessingMode[] = ["textract"];
+const DEFAULT_MODE: ProcessingMode = "textract";
 const MODE_LABELS: Record<ProcessingMode, string> = {
   textract: "Textract",
   rule: "Standard AI",

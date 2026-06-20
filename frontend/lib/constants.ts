@@ -1,7 +1,10 @@
 import type { SupportedFileType } from "@/lib/types";
 
+// Default to the textract-enabled backend on localhost:8001 so the app uses
+// the Textract pipeline by default during local development. Override with
+// `NEXT_PUBLIC_API_BASE_URL` when needed.
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 // Async (serverless Textract) API surface — API Gateway. Additive: when unset
 // or the feature flag is off, the app uses the synchronous EC2 path unchanged.

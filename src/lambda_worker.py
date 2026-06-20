@@ -31,7 +31,7 @@ from typing import Any, Callable
 from urllib.parse import unquote_plus
 
 from src.artifact_store import download_s3_object
-from src.document_render import ensure_image_input
+from src.document_render import ensure_image_input, ensure_page_images
 from src.job_state import JobStateStore
 from src.pipelines.textract_pipeline import run_textract_pipeline
 
@@ -48,6 +48,12 @@ WORK_ROOT = Path(os.getenv("FORM_PARSER_WORK_ROOT", "/tmp/form_parser_jobs"))
 # Whether to delete the per-job working directory after publishing. Defaults to
 # True so warm Lambda containers do not accumulate files in /tmp.
 CLEANUP_WORKDIR = os.getenv("FORM_PARSER_WORKER_CLEANUP", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+# Multi-page document handling. Defaults ON: every page of a PDF is rasterised,
+# analysed, mapped and rendered. KILL-SWITCH: set FORM_PARSER_MULTIPAGE=false to
+# instantly revert to the legacy page-1-only behaviour (no redeploy needed),
+# which is the rollback path if multi-page ever misbehaves in production.
+MULTIPAGE_ENABLED = os.getenv("FORM_PARSER_MULTIPAGE", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _sanitize_job_id(value: str) -> str:
@@ -216,13 +222,34 @@ def process_job(
         input_path = job_dir / f"input{suffix}"
         download_s3_object(bucket, key, input_path, region=region, client=s3_client)
 
-        # Rasterise PDFs (and pass images through) so Textract + the OpenCV/
-        # ReportLab render steps always receive an image.
-        image_path = ensure_image_input(input_path, job_dir)
+        if MULTIPAGE_ENABLED:
+            # Multi-page path: rasterise EVERY page. Page 1 remains the reference
+            # image for CV fallback / previews; the full set drives per-page
+            # extraction, mapping and rendering. document_location enables the
+            # opt-in native async Textract path (FORM_PARSER_TEXTRACT_ASYNC).
+            page_images = ensure_page_images(input_path, job_dir)
+            image_path = page_images[0][1]
+            logger.info(
+                "[worker] running Textract pipeline (multi-page) job_id=%s pages=%s input=%s",
+                job_id,
+                len(page_images),
+                image_path.name,
+            )
+            pipeline_output = pipeline_fn(
+                str(image_path),
+                str(job_dir),
+                reference_image_path=str(image_path),
+                page_images=[(page_no, str(img)) for page_no, img in page_images],
+                document_location={"bucket": bucket, "key": key},
+            )
+        else:
+            # Legacy single-page path (rollback target). Unchanged: rasterise only
+            # page 1 (or pass images through) and analyse that single image.
+            image_path = ensure_image_input(input_path, job_dir)
+            logger.info("[worker] running Textract pipeline job_id=%s input=%s", job_id, image_path.name)
+            pipeline_output = pipeline_fn(str(image_path), str(job_dir), reference_image_path=str(image_path))
 
-        logger.info("[worker] running Textract pipeline job_id=%s input=%s", job_id, image_path.name)
-        pipeline_output = pipeline_fn(str(image_path), str(job_dir), reference_image_path=str(image_path))
-
+        page_observability = pipeline_output.get("page_observability") or {}
         result["status"] = "succeeded"
         result["artifacts"] = pipeline_output.get("artifact_store")
         result["metrics"] = {
@@ -230,6 +257,9 @@ def process_job(
             "checkboxes_detected": len(pipeline_output.get("checkboxes") or []),
             "tables_detected": pipeline_output.get("tables_detected"),
             "processing_time_ms": pipeline_output.get("processing_time_ms"),
+            "pages_detected": page_observability.get("pages_detected"),
+            "pages_analyzed": len(page_observability.get("pages_analyzed") or []),
+            "pages_rendered": len(page_observability.get("pages_rendered") or []),
         }
         logger.info("[worker] job succeeded job_id=%s metrics=%s", job_id, result["metrics"])
     except Exception as exc:  # production-safe: never raise out of a job

@@ -87,7 +87,13 @@ export async function processForm(file: File, mode: ProcessingMode): Promise<Pro
   const endpoint = `${getApiBaseUrl()}/process-form`;
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("mode", mode);
+  // The backend `POST /process-form` accepts only 'rule' or 'ml' for the
+  // `mode` form field. When the UI uses 'textract' as a frontend mode (the
+  // pipeline is selected via environment), send a safe backend value so the
+  // request isn't rejected with 400. The server's pipeline selection is
+  // controlled by `FORM_PARSER_PIPELINE_MODE` and ignores this field.
+  const backendMode = mode === "textract" ? ("rule" as ProcessingMode) : mode;
+  formData.append("mode", backendMode);
 
   const response = await fetch(endpoint, {
     method: "POST",
