@@ -89,6 +89,19 @@ def _make_page_images(tmp_path: Path, n_pages: int) -> dict[int, Path]:
     return images
 
 
+def _make_pdf(tmp_path: Path, n_pages: int) -> Path:
+    pdf_path = tmp_path / "source.pdf"
+    doc = fitz.open()
+    try:
+        for page_no in range(1, n_pages + 1):
+            page = doc.new_page(width=300, height=420)
+            page.insert_text((40, 80), f"Page {page_no}")
+        doc.save(str(pdf_path))
+    finally:
+        doc.close()
+    return pdf_path
+
+
 FIELDS_PER_PAGE = 3
 PAGE_COUNTS = [1, 2, 5, 10]
 
@@ -113,6 +126,53 @@ def test_ensure_page_images_passthrough_for_image(tmp_path):
     img = tmp_path / "scan.png"
     cv2.imwrite(str(img), np.full((50, 50, 3), 255, np.uint8))
     assert ensure_page_images(img, tmp_path) == [(1, img)]
+
+
+def test_api_textract_pdf_upload_prepares_all_pages(monkeypatch, tmp_path):
+    monkeypatch.setenv("FORM_PARSER_PIPELINE_MODE", "textract")
+    from src.api import _prepare_pipeline_input
+
+    pdf = _make_pdf(tmp_path, 3)
+    pipeline_input, kwargs = _prepare_pipeline_input(pdf, tmp_path / "run")
+
+    assert pipeline_input == pdf
+    assert kwargs["reference_image_path"].name == "source_page_1.png"
+    assert [page for page, _ in kwargs["page_images"]] == [1, 2, 3]
+    assert all(Path(path).exists() for _, path in kwargs["page_images"])
+
+
+def test_pipeline_router_forwards_page_images_to_textract(monkeypatch, tmp_path):
+    monkeypatch.setenv("FORM_PARSER_PIPELINE_MODE", "textract")
+    from src.pipelines import pipeline_router
+
+    called = {}
+
+    def fake_textract_pipeline(file_path, output_dir, reference_image_path=None, *, page_images=None, document_location=None):
+        called.update(
+            {
+                "file_path": file_path,
+                "output_dir": output_dir,
+                "reference_image_path": reference_image_path,
+                "page_images": page_images,
+                "document_location": document_location,
+            }
+        )
+        return {"pipeline_mode": "textract"}
+
+    monkeypatch.setattr(pipeline_router, "run_textract_pipeline", fake_textract_pipeline)
+    pages = [(1, "page_1.png"), (2, "page_2.png")]
+
+    result = pipeline_router.run_pipeline(
+        "page_1.png",
+        tmp_path / "run",
+        reference_image_path="page_1.png",
+        page_images=pages,
+        document_location={"bucket": "b", "key": "k"},
+    )
+
+    assert result == {"pipeline_mode": "textract"}
+    assert called["page_images"] == pages
+    assert called["document_location"] == {"bucket": "b", "key": "k"}
 
 
 # --------------------------------------------------------------------------- #

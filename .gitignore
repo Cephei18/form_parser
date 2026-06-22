@@ -47,6 +47,7 @@ Thumbs.db
 # Frontend generated artifacts
 frontend/node_modules/
 frontend/.next/
+frontend/.next_dev/
 frontend/.next-rollback/
 frontend/out/
 # Pre-deploy snapshot of the live frontend bucket (rollback artifact, not source)

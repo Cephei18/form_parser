@@ -23,14 +23,27 @@ def resolve_pipeline_mode() -> str:
     return mode
 
 
-def run_pipeline(file_path: str | Path, output_dir: str | Path, reference_image_path: str | Path | None = None) -> dict[str, Any]:
+def run_pipeline(
+    file_path: str | Path,
+    output_dir: str | Path,
+    reference_image_path: str | Path | None = None,
+    *,
+    page_images: list[tuple[int, str | Path]] | None = None,
+    document_location: dict[str, str] | None = None,
+) -> dict[str, Any]:
     mode = resolve_pipeline_mode()
     logger.info("[pipeline] Pipeline mode: %s", mode)
 
     if mode == "textract":
         logger.info("ACTIVE PIPELINE: TEXTRACT")
         logger.info("[pipeline] Running Textract pipeline")
-        return run_textract_pipeline(file_path, output_dir, reference_image_path=reference_image_path)
+        return run_textract_pipeline(
+            file_path,
+            output_dir,
+            reference_image_path=reference_image_path,
+            page_images=page_images,
+            document_location=document_location,
+        )
 
     if mode == "hybrid":
         logger.warning("[pipeline] Hybrid mode is reserved; falling back to OCR for now")

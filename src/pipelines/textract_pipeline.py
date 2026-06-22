@@ -2,19 +2,30 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import cv2
 
 from src.artifact_store import get_artifact_store
+from src.confidence_pipeline import apply_confidence_pipeline, draw_confidence_overlay
+from src.document_routing import (
+    ROUTE_ASYNC,
+    ROUTE_JSON_REPLAY,
+    ROUTE_PARALLEL_SYNC,
+    choose_routing,
+)
 from src.field_anchor_engine import build_anchored_mappings, draw_anchor_debug_overlay
+from src.page_geometry import orientation, page_sizes_from_images, preserve_page_size_enabled
 from src.pdf_generator import create_pdf_with_fields
 from src.section_detector import build_hierarchy
 from src.pipeline_config import StorageConfig
 from src.textract_service import load_json, save_json
 from src.textract_service import parse_response_file
 from src.textract_validators import build_validation_report
+from src.widget_model import build_widget_diagnostics
 
 logger = logging.getLogger("form_parser.pipeline.textract")
 
@@ -108,7 +119,12 @@ def _multipage_async_enabled() -> bool:
     Until that policy is live, multi-page extraction uses the per-page sync
     merge, which needs no new permissions and is therefore rollback-safe.
     """
-    return os.getenv("FORM_PARSER_TEXTRACT_ASYNC", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return (
+        os.getenv("FORM_PARSER_ASYNC_TEXTRACT_ENABLED", os.getenv("FORM_PARSER_TEXTRACT_ASYNC", "false"))
+        .strip()
+        .lower()
+        in {"1", "true", "yes", "on"}
+    )
 
 
 def _merge_page_responses(page_responses: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
@@ -142,10 +158,32 @@ def _merge_page_responses(page_responses: list[tuple[int, dict[str, Any]]]) -> d
     return merged
 
 
-def _analyze_pages(
+def _analyze_page_pair(page_pair: tuple[int, Path]) -> tuple[int, dict[str, Any]]:
+    page_number, image = page_pair
+    return page_number, _analyze_with_textract(Path(image))
+
+
+def _analyze_pages_serial(page_images: list[tuple[int, Path]]) -> list[tuple[int, dict[str, Any]]]:
+    return [_analyze_page_pair(pair) for pair in page_images]
+
+
+def _analyze_pages_parallel(
+    page_images: list[tuple[int, Path]],
+    *,
+    max_workers: int,
+) -> list[tuple[int, dict[str, Any]]]:
+    workers = max(1, min(max_workers, len(page_images) or 1))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        # executor.map preserves page order, so the merge remains deterministic.
+        return list(executor.map(_analyze_page_pair, page_images))
+
+
+def _analyze_pages_with_routing(
     page_images: list[tuple[int, Path]],
     document_location: dict[str, str] | None = None,
-) -> dict[str, Any]:
+    *,
+    source_path: str | Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run multi-page Textract extraction and return a sync-compatible response.
 
     Default path (infra-stable, no new IAM): synchronous ``AnalyzeDocument``
@@ -155,15 +193,88 @@ def _analyze_pages(
     ``document_location``): the native ``StartDocumentAnalysis`` flow already
     built and unit-tested in ``src.textract_analysis``.
     """
-    if document_location and _multipage_async_enabled():
+    started = time.perf_counter()
+    decision = choose_routing(
+        page_images,
+        source_path=source_path,
+        has_document_location=bool(document_location),
+    )
+    raw_response: dict[str, Any]
+    if decision.route == ROUTE_ASYNC:
         from src.textract_analysis import analyze_document_async
 
-        logger.info("[pipeline] multi-page extraction via async StartDocumentAnalysis")
-        return analyze_document_async(document_location["bucket"], document_location["key"])
+        logger.info(
+            "[pipeline] multi-page extraction route=%s pages=%s via async StartDocumentAnalysis",
+            decision.route,
+            decision.document_size.page_count,
+        )
+        raw_response = analyze_document_async(document_location["bucket"], document_location["key"])
+    elif decision.route == ROUTE_PARALLEL_SYNC:
+        logger.info(
+            "[pipeline] multi-page extraction route=%s pages=%s workers=%s",
+            decision.route,
+            decision.document_size.page_count,
+            decision.parallel_workers,
+        )
+        raw_response = _merge_page_responses(
+            _analyze_pages_parallel(page_images, max_workers=decision.parallel_workers)
+        )
+    else:
+        logger.info(
+            "[pipeline] multi-page extraction route=%s pages=%s via serial AnalyzeDocument",
+            decision.route,
+            decision.document_size.page_count,
+        )
+        raw_response = _merge_page_responses(_analyze_pages_serial(page_images))
 
-    logger.info("[pipeline] multi-page extraction via per-page sync AnalyzeDocument pages=%s", len(page_images))
-    page_responses = [(page_number, _analyze_with_textract(Path(image))) for page_number, image in page_images]
-    return _merge_page_responses(page_responses)
+    elapsed_ms = round((time.perf_counter() - started) * 1000.0, 2)
+    routing_diagnostics = decision.to_dict()
+    routing_diagnostics.update(
+        {
+            "processing_time_ms": elapsed_ms,
+            "actual_route": decision.route,
+            "sync_pages": decision.sync_pages,
+            "async_pages": decision.async_pages,
+            "parallel_workers": decision.parallel_workers,
+            "response_page_count": (raw_response.get("DocumentMetadata") or {}).get("Pages"),
+            "response_block_count": len(raw_response.get("Blocks") or []),
+        }
+    )
+    return raw_response, routing_diagnostics
+
+
+def _analyze_pages(
+    page_images: list[tuple[int, Path]],
+    document_location: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    raw_response, _ = _analyze_pages_with_routing(page_images, document_location)
+    return raw_response
+
+def _routing_diagnostics_for_replay(
+    page_images: list[tuple[int, Path]],
+    *,
+    source_path: str | Path | None = None,
+    document_location: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    decision = choose_routing(
+        page_images,
+        source_path=source_path,
+        has_document_location=bool(document_location),
+        extraction_mode=ROUTE_JSON_REPLAY,
+    )
+    diagnostics = decision.to_dict()
+    diagnostics.update(
+        {
+            "processing_time_ms": 0.0,
+            "actual_route": ROUTE_JSON_REPLAY,
+            "sync_pages": 0,
+            "async_pages": 0,
+            "parallel_workers": 0,
+            "response_page_count": None,
+            "response_block_count": None,
+        }
+    )
+    return diagnostics
 
 
 def run_textract_pipeline(
@@ -198,11 +309,30 @@ def run_textract_pipeline(
         logger.info("[pipeline] multi-page mode enabled pages=%s", sorted(page_image_map))
     started = cv2.getTickCount()
 
+    routing_diagnostics: dict[str, Any]
     if source_path.suffix.lower() == ".json":
         raw_response = load_json(source_path)
+        routing_diagnostics = _routing_diagnostics_for_replay(
+            page_image_pairs or [(1, image_path)],
+            source_path=source_path,
+            document_location=document_location,
+        )
     elif multipage:
-        raw_response = _analyze_pages(page_image_pairs, document_location)
+        raw_response, routing_diagnostics = _analyze_pages_with_routing(
+            page_image_pairs,
+            document_location,
+            source_path=source_path,
+        )
     else:
+        routing_diagnostics = _routing_diagnostics_for_replay(
+            [(1, image_path)],
+            source_path=source_path,
+            document_location=document_location,
+        )
+        routing_diagnostics["actual_route"] = "SINGLE_PAGE_SYNC"
+        routing_diagnostics["route"] = "SINGLE_PAGE_SYNC"
+        routing_diagnostics["reason"] = "single_page_sync_analyze_document"
+        routing_diagnostics["sync_pages"] = 1
         raw_response = _analyze_with_textract(source_path)
 
     raw_response_path = destination_dir / "textract_raw_response.json"
@@ -217,11 +347,21 @@ def run_textract_pipeline(
     visual_features = anchor_output["visual_features"]
     sections = anchor_output.get("sections", [])
 
+    confidence_output = apply_confidence_pipeline(mappings)
+    mappings = confidence_output["mappings"]
+    render_mappings = confidence_output["render_mappings"]
+
     mappings_path = destination_dir / "mappings.json"
     result_path = destination_dir / "result.json"
     mapping_image_path = destination_dir / "mapping.png"
     debug_image_path = destination_dir / "textract_mapping_debug.png"
+    confidence_overlay_path = destination_dir / "confidence_overlay.png"
     anchoring_metadata_path = destination_dir / "anchoring_metadata.json"
+    comb_debug_path = destination_dir / "comb_debug.json"
+    radio_debug_path = destination_dir / "radio_debug.json"
+    confidence_report_path = destination_dir / "confidence_report.json"
+    review_artifacts_path = destination_dir / "review_artifacts.json"
+    routing_diagnostics_path = destination_dir / "routing_diagnostics.json"
     validation_report_path = destination_dir / "validation_report.json"
     hierarchy_path = destination_dir / "hierarchy.json"
     pdf_output_path = destination_dir / "output.pdf"
@@ -245,11 +385,41 @@ def run_textract_pipeline(
     save_json(mappings_path, mappings)
     save_json(result_path, mappings)
     save_json(anchoring_metadata_path, anchor_diagnostics)
+    save_json(comb_debug_path, anchor_diagnostics.get("comb_fields", {}))
+    save_json(radio_debug_path, anchor_diagnostics.get("radio_groups", {}))
+    save_json(confidence_report_path, confidence_output["confidence_report"])
+    save_json(review_artifacts_path, confidence_output["review_artifacts"])
+    save_json(routing_diagnostics_path, routing_diagnostics)
     save_json(validation_report_path, validation_report)
     save_json(hierarchy_path, hierarchy)
     draw_anchor_debug_overlay(image_path, mappings, debug_image_path, visual_features=visual_features)
-    _draw_mapping_preview(image_path, mappings, mapping_image_path)
-    create_pdf_with_fields(image_path, mappings, pdf_output_path, page_images=page_image_map or None)
+    _draw_mapping_preview(image_path, render_mappings, mapping_image_path)
+    confidence_overlay_written = False
+    if confidence_output.get("diagnostics", {}).get("enabled"):
+        confidence_overlay_written = draw_confidence_overlay(image_path, mappings, confidence_overlay_path)
+
+    # Issue 1 / page-geometry preservation. Default OFF (US Letter, unchanged).
+    # When enabled, each output page is sized to its source page's geometry,
+    # derived from the rasterised image dimensions. Pages whose size cannot be
+    # derived are omitted and fall back to Letter in the renderer.
+    preserve_page_size = preserve_page_size_enabled()
+    page_sizes: dict[int, tuple[float, float]] = {}
+    if preserve_page_size:
+        size_source = dict(page_image_map) if page_image_map else {1: image_path}
+        page_sizes = page_sizes_from_images(size_source)
+        logger.info(
+            "[pipeline] page-size preservation ON pages=%s sizes_pt=%s",
+            len(page_sizes),
+            {p: s for p, s in sorted(page_sizes.items())},
+        )
+
+    create_pdf_with_fields(
+        image_path,
+        render_mappings,
+        pdf_output_path,
+        page_images=page_image_map or None,
+        page_sizes=page_sizes or None,
+    )
 
     elapsed_ms = ((cv2.getTickCount() - started) / cv2.getTickFrequency()) * 1000.0
 
@@ -259,11 +429,15 @@ def run_textract_pipeline(
     pages_analyzed = sorted(
         {int(block.get("Page") or 1) for block in (raw_response.get("Blocks") or []) if isinstance(block, dict)}
     ) or [1]
-    pages_rendered = sorted(set(int(m.get("page") or 1) for m in mappings) | set(page_image_map))
+    pages_rendered = sorted(set(int(m.get("page") or 1) for m in render_mappings) | set(page_image_map))
     fields_per_page: dict[int, int] = {}
     for mapping in mappings:
         page = int(mapping.get("page") or 1)
         fields_per_page[page] = fields_per_page.get(page, 0) + 1
+    rendered_fields_per_page: dict[int, int] = {}
+    for mapping in render_mappings:
+        page = int(mapping.get("page") or 1)
+        rendered_fields_per_page[page] = rendered_fields_per_page.get(page, 0) + 1
 
     missing_page_warnings: list[str] = []
     if multipage:
@@ -282,6 +456,12 @@ def run_textract_pipeline(
     if missing_page_warnings:
         logger.warning("[pipeline] multi-page warnings: %s", missing_page_warnings)
 
+    page_geometry_diag = {
+        "preserve_page_size": preserve_page_size,
+        "page_sizes_pt": {str(page): [size[0], size[1]] for page, size in sorted(page_sizes.items())},
+        "orientations": {str(page): orientation(size) for page, size in sorted(page_sizes.items())},
+    }
+
     page_observability = {
         "multipage_mode": multipage,
         "pages_detected": pages_detected,
@@ -289,7 +469,9 @@ def run_textract_pipeline(
         "pages_analyzed": pages_analyzed,
         "pages_rendered": pages_rendered,
         "fields_per_page": {str(page): count for page, count in sorted(fields_per_page.items())},
+        "rendered_fields_per_page": {str(page): count for page, count in sorted(rendered_fields_per_page.items())},
         "missing_page_warnings": missing_page_warnings,
+        "page_geometry": page_geometry_diag,
     }
     logger.info(
         "[pipeline] page summary multipage=%s detected=%s rasterized=%s analyzed=%s rendered=%s",
@@ -303,12 +485,24 @@ def run_textract_pipeline(
     diagnostics = {
         "pipeline_mode": "textract",
         "page_observability": page_observability,
+        "document_routing": routing_diagnostics,
+        "routing_diagnostics_path": str(routing_diagnostics_path),
+        "widgets": build_widget_diagnostics(mappings),
+        "comb_fields": anchor_diagnostics.get("comb_fields", {}),
+        "comb_debug_path": str(comb_debug_path),
+        "radio_groups": anchor_diagnostics.get("radio_groups", {}),
+        "radio_debug_path": str(radio_debug_path),
+        "confidence": confidence_output["diagnostics"],
+        "confidence_report_path": str(confidence_report_path),
+        "review_artifacts_path": str(review_artifacts_path),
+        "confidence_overlay_path": str(confidence_overlay_path) if confidence_overlay_written else None,
         "hierarchy": section_hierarchy_diag,
         "hierarchy_path": str(hierarchy_path),
         "processing_time_ms": round(elapsed_ms, 2),
         "raw_response_path": str(raw_response_path),
         "parsed_response_path": str(destination_dir / "textract_parsed.json"),
         "fields_detected": len([field for field in mappings if field.get("field_type") != "photo"]),
+        "fields_rendered": len([field for field in render_mappings if field.get("field_type") != "photo"]),
         "photos_detected": len([field for field in mappings if field.get("field_type") == "photo"]),
         "checkboxes_detected": len([field for field in mappings if field.get("field_type") == "checkbox"]),
         "tables_detected": len(parsed.get("tables", []) or []),
@@ -364,6 +558,10 @@ def run_textract_pipeline(
         "result_path": result_path,
         "mappings_path": mappings_path,
         "mapping_image_path": mapping_image_path,
+        "confidence_report_path": confidence_report_path,
+        "review_artifacts_path": review_artifacts_path,
+        "confidence_overlay_path": confidence_overlay_path if confidence_overlay_written else None,
+        "routing_diagnostics_path": routing_diagnostics_path,
         "pdf_output_path": pdf_output_path,
         "mappings": mappings,
         "lines_count": diagnostics["label_count"] + diagnostics["answer_region_count"],

@@ -10,6 +10,14 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from src.widget_model import (
+    WidgetRenderContext,
+    WidgetRendererRegistry,
+    declared_widget_type,
+    field_type_for_widget_type,
+    widget_registry_enabled,
+)
+
 logger = logging.getLogger("form_parser.pdf")
 if not logger.handlers:
     handler = logging.StreamHandler()
@@ -289,6 +297,246 @@ def _checkbox_widget_rect(pdf_x: float, pdf_y: float, width: float, height_field
     return x, y, size
 
 
+def _mapping_with_field_type(mapping, field_type: str):
+    updated = dict(mapping)
+    updated["field_type"] = field_type
+    return updated
+
+
+def _render_checkbox_field(c, mapping, box, context: WidgetRenderContext) -> None:
+    checkbox_x, checkbox_y, size = _checkbox_widget_rect(
+        context.pdf_x,
+        context.pdf_y,
+        context.width,
+        context.height,
+    )
+    c.acroForm.checkbox(
+        checked=_checkbox_is_checked(mapping),
+        name=context.field_name,
+        tooltip=_field_tooltip(mapping, "Checkbox"),
+        x=checkbox_x,
+        y=checkbox_y,
+        size=size,
+        fillColor=CHECKBOX_FILL,
+        borderColor=CHECKBOX_BORDER,
+        textColor=FIELD_TEXT,
+        borderWidth=0.6,
+        buttonStyle="check",
+        fieldFlags="",
+        forceBorder=False,
+    )
+
+
+def _safe_radio_value(value: object, fallback: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value or "").strip()).strip("_")
+    return cleaned or fallback
+
+
+def _downgrade_singleton_radio_groups(mappings):
+    """ReportLab requires every radio group to contain at least two buttons.
+
+    Phase-D review filtering can remove one option from an otherwise valid
+    radio group before rendering. Keep the evidence in mappings, but render the
+    surviving singleton as a legacy checkbox so PDF generation cannot fail.
+    """
+    items = list(mappings or [])
+    group_counts: dict[str, int] = defaultdict(int)
+    group_keys: dict[int, str] = {}
+    for index, mapping in enumerate(items):
+        if not isinstance(mapping, dict):
+            continue
+        if declared_widget_type(mapping) != "radio":
+            continue
+        key = str(mapping.get("radio_group") or f"__radio_singleton_{index}")
+        group_keys[index] = key
+        group_counts[key] += 1
+
+    if not group_counts:
+        return items
+
+    normalized = []
+    for index, mapping in enumerate(items):
+        if not isinstance(mapping, dict) or index not in group_keys or group_counts[group_keys[index]] >= 2:
+            normalized.append(mapping)
+            continue
+        updated = dict(mapping)
+        updated.pop("widget_type", None)
+        updated["field_type"] = "checkbox"
+        updated["radio_render_fallback"] = "singleton_radio_group"
+        normalized.append(updated)
+        logger.warning(
+            "[pdf] radio group %r has fewer than 2 renderable options; rendering label=%r as checkbox",
+            mapping.get("radio_group"),
+            mapping.get("label"),
+        )
+    return normalized
+
+
+def _radio_is_selected(mapping) -> bool:
+    value = mapping.get("radio_selected") if isinstance(mapping, dict) else None
+    if isinstance(value, bool):
+        return value
+    return _checkbox_is_checked(mapping)
+
+
+def _render_radio_field(c, mapping, box, context: WidgetRenderContext) -> None:
+    radio_x, radio_y, size = _checkbox_widget_rect(
+        context.pdf_x,
+        context.pdf_y,
+        context.width,
+        context.height,
+    )
+    group_name = _safe_radio_value(mapping.get("radio_group"), context.field_name)
+    export_value = _safe_radio_value(mapping.get("export_value") or mapping.get("option_label"), f"Option_{context.box_index}")
+    c.acroForm.radio(
+        selected=_radio_is_selected(mapping),
+        name=group_name,
+        value=export_value,
+        tooltip=_field_tooltip(mapping, "Radio button"),
+        x=radio_x,
+        y=radio_y,
+        size=size,
+        fillColor=CHECKBOX_FILL,
+        borderColor=CHECKBOX_BORDER,
+        textColor=FIELD_TEXT,
+        borderWidth=0.6,
+        buttonStyle="circle",
+        shape="circle",
+        fieldFlags="radio",
+        forceBorder=False,
+    )
+
+
+def _render_text_field(c, mapping, box, context: WidgetRenderContext) -> None:
+    field_type = _field_type(mapping, box)
+    widget_x, widget_y, widget_width, widget_height = _text_widget_rect(
+        mapping,
+        box,
+        context.pdf_x,
+        context.pdf_y,
+        context.width,
+        context.height,
+    )
+    border_style, border_width = _text_widget_style(mapping, box, widget_height)
+    c.acroForm.textfield(
+        name=context.field_name,
+        tooltip=_field_tooltip(mapping, "Field"),
+        x=widget_x,
+        y=widget_y,
+        width=widget_width,
+        height=widget_height,
+        fillColor=TRANSPARENT_FILL,
+        borderColor=FIELD_BORDER,
+        textColor=FIELD_TEXT,
+        borderWidth=border_width,
+        borderStyle=border_style,
+        fieldFlags="multiline" if field_type == "multiline" else "",
+        forceBorder=False,
+        fontSize=_font_size_for_height(field_type, widget_height),
+        maxlen=0 if field_type == "multiline" else 100,
+    )
+
+
+def _comb_cell_count(mapping) -> int:
+    for key in ("comb_cells", "expected_length", "max_length"):
+        try:
+            value = int(mapping.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return min(value, 64)
+    return 0
+
+
+def _render_comb_field(c, mapping, box, context: WidgetRenderContext) -> None:
+    cells = _comb_cell_count(mapping)
+    if cells <= 0:
+        _render_text_field(c, _mapping_with_field_type(mapping, "text"), box, context)
+        return
+
+    inset = 0.5 if mapping.get("comb_boxes") else 1.25
+    widget_x = context.pdf_x + inset
+    widget_y = context.pdf_y + inset
+    widget_width = max(10.0, context.width - inset * 2.0)
+    widget_height = max(8.0, context.height - inset * 2.0)
+    border_width = 0.0 if mapping.get("render_border") is False or mapping.get("comb_boxes") else 0.35
+    c.acroForm.textfield(
+        name=context.field_name,
+        tooltip=_field_tooltip(mapping, "Comb field"),
+        x=widget_x,
+        y=widget_y,
+        width=widget_width,
+        height=widget_height,
+        fillColor=TRANSPARENT_FILL,
+        borderColor=FIELD_BORDER,
+        textColor=FIELD_TEXT,
+        borderWidth=border_width,
+        borderStyle="solid",
+        fieldFlags="comb",
+        forceBorder=False,
+        fontSize=_clamp(widget_height * 0.62, 7.0, 12.0),
+        maxlen=cells,
+    )
+
+
+def _render_legacy_field(c, mapping, box, context: WidgetRenderContext) -> None:
+    field_type = _field_type(mapping, box)
+    if field_type == "checkbox":
+        _render_checkbox_field(c, mapping, box, context)
+    else:
+        _render_text_field(c, mapping, box, context)
+
+
+def _render_widget_as(c, mapping, box, context: WidgetRenderContext, widget_type: str) -> None:
+    if widget_type == "comb":
+        _render_comb_field(c, mapping, box, context)
+        return
+    if widget_type == "radio":
+        _render_radio_field(c, mapping, box, context)
+        return
+    render_mapping = _mapping_with_field_type(mapping, field_type_for_widget_type(widget_type))
+    if widget_type == "checkbox":
+        _render_checkbox_field(c, render_mapping, box, context)
+    else:
+        _render_text_field(c, render_mapping, box, context)
+
+
+_DEFAULT_WIDGET_REGISTRY: WidgetRendererRegistry | None = None
+
+
+def get_widget_renderer_registry() -> WidgetRendererRegistry:
+    global _DEFAULT_WIDGET_REGISTRY
+    if _DEFAULT_WIDGET_REGISTRY is None:
+        registry = WidgetRendererRegistry()
+        for widget_type in ("text", "multiline", "checkbox", "radio", "comb", "signature"):
+            registry.register(
+                widget_type,
+                lambda c, mapping, box, context, wt=widget_type: _render_widget_as(
+                    c,
+                    mapping,
+                    box,
+                    context,
+                    wt,
+                ),
+            )
+        _DEFAULT_WIDGET_REGISTRY = registry
+    return _DEFAULT_WIDGET_REGISTRY
+
+
+def _render_declared_widget_if_enabled(c, mapping, box, context: WidgetRenderContext) -> bool:
+    if not widget_registry_enabled():
+        return False
+
+    widget_type = declared_widget_type(mapping)
+    if widget_type is None:
+        return False
+
+    rendered = get_widget_renderer_registry().render(c, widget_type, mapping, box, context)
+    if not rendered:
+        logger.warning("[pdf] no renderer registered for widget_type=%r; using legacy renderer", widget_type)
+    return rendered
+
+
 def _fraction_intersection_ratio(box, label_box) -> float:
     try:
         x1 = max(float(box["x"]), float(label_box["x"]))
@@ -343,7 +591,7 @@ def _verify_output_writable(output: Path) -> None:
             pass
 
 
-def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
+def create_pdf_with_fields(image_path, mappings, output_path, page_images=None, page_sizes=None):
     """Render an empty fillable-form PDF.
 
     ``page_images`` optionally maps a 1-based page number to that page's
@@ -353,15 +601,24 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
     on its own background, the page count covers every rasterised page (even
     pages with zero detected fields), and each page's widgets are placed using
     that page's coordinate scale.
+
+    ``page_sizes`` optionally maps a 1-based page number to that page's output
+    size ``(width_pt, height_pt)`` (Issue 1 / page-geometry preservation). When
+    omitted or empty, every page is US Letter, byte-identical to before. When
+    supplied, each page is sized to its source geometry (A4 / Legal / landscape /
+    mixed-size); pages absent from the map fall back to Letter. Widgets use
+    page-local fraction coordinates, so they remain correctly placed at any page
+    size.
     """
     started = time.perf_counter()
     output = Path(output_path)
     logger.info(
-        "[pdf] start create_pdf_with_fields image=%s output=%s mappings=%s page_images=%s",
+        "[pdf] start create_pdf_with_fields image=%s output=%s mappings=%s page_images=%s page_sizes=%s",
         image_path,
         output,
         len(mappings or []),
         len(page_images or {}),
+        len(page_sizes or {}),
     )
 
     logger.info("[pdf] verify output path writable start")
@@ -374,11 +631,25 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
         raise RuntimeError("ReportLab canvas initialization returned None.")
     logger.info("[pdf] canvas init end")
 
-    page_width, page_height = letter
+    default_page_width, default_page_height = letter
+
+    # Per-page output size. An empty map keeps every page at US Letter so the
+    # historical behaviour is byte-identical. When ``page_sizes`` is supplied
+    # (Issue 1 / page-geometry preservation) each page is sized to its source
+    # geometry; pages absent from the map fall back to Letter.
+    page_size_map = {
+        int(p): (float(w), float(h))
+        for p, (w, h) in (page_sizes or {}).items()
+        if float(w) > 0 and float(h) > 0
+    }
+
+    def _page_dimensions(page_number: int) -> tuple:
+        return page_size_map.get(int(page_number), (default_page_width, default_page_height))
 
     # Per-page background resolver. Each distinct background image is opened once
-    # and its page-fill scale cached. With no page_images map every page falls
-    # back to ``image_path`` (legacy single-background behaviour, byte-identical).
+    # (reader + pixel dims cached). The page-fill scale is derived per page from
+    # that page's output size, so mixed-size documents scale correctly. With no
+    # page_images map every page falls back to ``image_path``.
     page_image_map = {int(p): img for p, img in (page_images or {}).items()}
     _bg_cache: dict[str, tuple] = {}
 
@@ -391,13 +662,13 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
             img_w, img_h = reader.getSize()
             if img_w <= 0 or img_h <= 0:
                 raise RuntimeError(f"Invalid source image size: {img_w}x{img_h} ({key})")
-            # Stretch background image to page; scale legacy pixel coords to match.
-            _bg_cache[key] = (reader, img_w, img_h, page_width / float(img_w), page_height / float(img_h))
+            _bg_cache[key] = (reader, img_w, img_h)
             logger.info("[pdf] image reader init end page=%s size=%sx%s", page_number, img_w, img_h)
         return _bg_cache[key]
 
+    render_mappings = _downgrade_singleton_radio_groups(mappings or [])
     mappings_by_page = defaultdict(list)
-    for index, mapping in enumerate(mappings or [], start=1):
+    for index, mapping in enumerate(render_mappings, start=1):
         if not isinstance(mapping, dict):
             logger.warning("[pdf] skip mapping %s: mapping is not a dict", index)
             continue
@@ -408,7 +679,16 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
     # what guarantees render-page-count == source-page-count.
     page_numbers = sorted(set(mappings_by_page) | set(page_image_map)) or [1]
     for page_position, page_number in enumerate(page_numbers, start=1):
-        image_reader, image_width, image_height, scale_x, scale_y = _background(page_number)
+        page_width, page_height = _page_dimensions(page_number)
+        # Only resize when custom sizes are in play, so the no-page_sizes path
+        # issues no extra canvas calls and stays byte-identical to before. When
+        # sizes ARE supplied, set every page (default Letter included) so a prior
+        # A4 page never bleeds its size onto a default-sized page.
+        if page_size_map:
+            c.setPageSize((page_width, page_height))
+        image_reader, image_width, image_height = _background(page_number)
+        scale_x = page_width / float(image_width)
+        scale_y = page_height / float(image_height)
         logger.info("[pdf] draw background start page=%s", page_number)
         c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
         logger.info("[pdf] draw background end page=%s", page_number)
@@ -449,53 +729,29 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None):
                     height_field = max(9, box_height * scale_y)
 
                 field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
-                logger.info("[pdf] add field start page=%s name=%s type=%s", page_number, field_name, mapping.get("field_type", "text"))
-
                 field_type = _field_type(mapping, box)
-                if field_type == "checkbox":
-                    checkbox_x, checkbox_y, size = _checkbox_widget_rect(pdf_x, pdf_y, width, height_field)
-                    c.acroForm.checkbox(
-                        checked=_checkbox_is_checked(mapping),
-                        name=field_name,
-                        tooltip=_field_tooltip(mapping, "Checkbox"),
-                        x=checkbox_x,
-                        y=checkbox_y,
-                        size=size,
-                        fillColor=CHECKBOX_FILL,
-                        borderColor=CHECKBOX_BORDER,
-                        textColor=FIELD_TEXT,
-                        borderWidth=0.6,
-                        buttonStyle="check",
-                        fieldFlags="",
-                        forceBorder=False,
-                    )
-                else:
-                    widget_x, widget_y, widget_width, widget_height = _text_widget_rect(
-                        mapping,
-                        box,
-                        pdf_x,
-                        pdf_y,
-                        width,
-                        height_field,
-                    )
-                    border_style, border_width = _text_widget_style(mapping, box, widget_height)
-                    c.acroForm.textfield(
-                        name=field_name,
-                        tooltip=_field_tooltip(mapping, "Field"),
-                        x=widget_x,
-                        y=widget_y,
-                        width=widget_width,
-                        height=widget_height,
-                        fillColor=TRANSPARENT_FILL,
-                        borderColor=FIELD_BORDER,
-                        textColor=FIELD_TEXT,
-                        borderWidth=border_width,
-                        borderStyle=border_style,
-                        fieldFlags="multiline" if field_type == "multiline" else "",
-                        forceBorder=False,
-                        fontSize=_font_size_for_height(field_type, widget_height),
-                        maxlen=0 if field_type == "multiline" else 100,
-                    )
+                logger.info(
+                    "[pdf] add field start page=%s name=%s type=%s widget_type=%s",
+                    page_number,
+                    field_name,
+                    field_type,
+                    mapping.get("widget_type"),
+                )
+
+                context = WidgetRenderContext(
+                    field_name=field_name,
+                    page_number=page_number,
+                    mapping_index=index,
+                    box_index=li + 1,
+                    pdf_x=pdf_x,
+                    pdf_y=pdf_y,
+                    width=width,
+                    height=height_field,
+                    page_width=page_width,
+                    page_height=page_height,
+                )
+                if not _render_declared_widget_if_enabled(c, mapping, box, context):
+                    _render_legacy_field(c, mapping, box, context)
                 logger.info("[pdf] add field end name=%s", field_name)
 
         if page_position < len(page_numbers):

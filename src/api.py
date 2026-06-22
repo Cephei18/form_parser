@@ -7,14 +7,16 @@ import time
 import uuid
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from src.document_render import ensure_page_images
 from src.main import resolve_uploaded_input
-from src.pipelines.pipeline_router import run_pipeline
+from src.pipelines.pipeline_router import resolve_pipeline_mode, run_pipeline
 from src.ocr import OCRRuntimeError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +54,32 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 logger.propagate = False
+
+
+def _prepare_pipeline_input(upload_path: Path, run_output_dir: Path) -> tuple[Path, dict[str, Any]]:
+    """Prepare uploaded input for the active pipeline.
+
+    Textract supports multi-page PDFs when supplied per-page raster images.
+    The OCR path keeps the existing single-page conversion behavior.
+    """
+    pipeline_mode = resolve_pipeline_mode()
+    if pipeline_mode == "textract" and upload_path.suffix.lower() == ".pdf":
+        page_images = ensure_page_images(upload_path, run_output_dir)
+        if not page_images:
+            raise RuntimeError("PDF conversion produced no pages.")
+        source_image = Path(page_images[0][1])
+        logger.info(
+            "[api] prepared Textract PDF upload pages=%s reference=%s",
+            len(page_images),
+            source_image.name,
+        )
+        return upload_path, {
+            "reference_image_path": source_image,
+            "page_images": [(page_no, str(path)) for page_no, path in page_images],
+        }
+
+    source_image = resolve_uploaded_input(upload_path, run_output_dir)
+    return source_image, {}
 
 
 def _parse_origins(value: str | None) -> list[str]:
@@ -417,8 +445,8 @@ async def process_form(file: UploadFile = File(...), mode: str = Form("rule")) -
 
         started = time.perf_counter()
         logger.info("[api] processing run_id=%s mode=%s", run_id, mode)
-        source_image = resolve_uploaded_input(upload_path, run_output_dir)
-        output = run_pipeline(source_image, run_output_dir)
+        pipeline_input, pipeline_kwargs = _prepare_pipeline_input(upload_path, run_output_dir)
+        output = run_pipeline(pipeline_input, run_output_dir, **pipeline_kwargs)
         elapsed_ms = round((time.perf_counter() - started) * 1000.0, 2)
         logger.info(
             "[api] run complete run_id=%s pipeline_mode=%s elapsed_ms=%.2f",

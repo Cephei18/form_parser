@@ -11,6 +11,9 @@ from typing import Any, Callable
 import cv2
 import numpy as np
 
+from src.comb_detector import apply_comb_detection
+from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
+from src.radio_grouper import apply_radio_grouping
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
 
 logger = logging.getLogger("form_parser.field_anchor")
@@ -1311,7 +1314,64 @@ def build_anchored_mappings(
             and score < UNRESOLVED_DROP_FLOOR
             and field_type not in {"photo", "signature", "checkbox"}
         ):
-            logger.info("[anchor] drop unresolved low-confidence field label=%r score=%.3f", label, score)
+            if not (confidence_pipeline_enabled() and review_queue_enabled()):
+                logger.info("[anchor] drop unresolved low-confidence field label=%r score=%.3f", label, score)
+                continue
+            logger.info("[anchor] preserve unresolved low-confidence field for review label=%r score=%.3f", label, score)
+            confidence = max(0.0, min(1.0, score))
+            review_mapping = {
+                "field_id": f"anchored_field_{index}",
+                "label": label,
+                "qualified_label": qualify_label(owner_section, label),
+                "section": section_summary(owner_section),
+                "value": value,
+                "field_type": field_type,
+                "bbox": _round_box(answer_box),
+                "label_bbox": _round_box(label_box),
+                "answer_region": {
+                    "bbox": _round_box(answer_box),
+                    "type": selected.get("anchor_type", "answer_region"),
+                    "confidence": round(confidence, 4),
+                },
+                "page": page,
+                "confidence": round(confidence, 4),
+                "candidate_score": round(confidence, 4),
+                "confidence_class": _confidence_class(confidence),
+                "multiline_group_size": 1,
+                "field_bboxes": [_box_to_pixel_box(answer_box, *_page_px(page))],
+                "source": "textract_anchor_low_confidence_review",
+                "render_border": False,
+                "anchoring": {
+                    "anchor_type": selected.get("anchor_type"),
+                    "type_reasons": type_reasons,
+                    "selection_reasons": selected.get("reasons", []),
+                    "label_overlap_ratio": selected.get("label_overlap_ratio", round(_overlap_ratio(answer_box, label_box), 4)),
+                    "candidate_count": len(candidates),
+                    "top_candidates": candidates[:5],
+                    "key_block_id": key_id or None,
+                    "value_block_ids": field_item.get("value_block_ids", []) or [],
+                    "preserved_for_review": True,
+                    "drop_floor": UNRESOLVED_DROP_FLOOR,
+                },
+            }
+            mappings.append(review_mapping)
+            anchor_records.append(
+                {
+                    "field_id": review_mapping["field_id"],
+                    "label": label,
+                    "field_type": field_type,
+                    "page": page,
+                    "section_id": owner_section.get("section_id"),
+                    "section_title": owner_section.get("title"),
+                    "label_bbox": review_mapping["label_bbox"],
+                    "answer_bbox": review_mapping["bbox"],
+                    "anchor_type": selected.get("anchor_type"),
+                    "confidence": review_mapping["confidence"],
+                    "label_overlap_ratio": review_mapping["anchoring"]["label_overlap_ratio"],
+                    "candidate_count": len(candidates),
+                    "preserved_for_review": True,
+                }
+            )
             continue
 
         # Batch B: never draw an input widget on top of a detected photo region.
@@ -1491,6 +1551,40 @@ def build_anchored_mappings(
             }
         )
 
+    mappings, comb_diagnostics = apply_comb_detection(
+        mappings,
+        visual_features,
+        table_cells=cells,
+        selection_regions=selection_regions,
+        photo_regions=photo_regions,
+    )
+    mappings, radio_diagnostics = apply_radio_grouping(
+        mappings,
+        text_boxes=text_boxes,
+    )
+    anchor_records_by_id = {
+        str(record.get("field_id")): record for record in anchor_records if record.get("field_id")
+    }
+    for mapping in mappings:
+        page = int(mapping.get("page") or 1)
+        bbox = _normalize_box(mapping.get("bbox"))
+        if bbox and mapping.get("widget_type") in {"comb", "radio"}:
+            mapping["field_bboxes"] = [_box_to_pixel_box(bbox, *_page_px(page))]
+        record = anchor_records_by_id.get(str(mapping.get("field_id")))
+        if record and mapping.get("widget_type") == "comb":
+            record["answer_bbox"] = mapping.get("bbox")
+            record["anchor_type"] = "comb_region"
+            record["confidence"] = mapping.get("comb_confidence", record.get("confidence"))
+            record["comb_cells"] = mapping.get("comb_cells")
+            record["widget_type"] = "comb"
+        elif record and mapping.get("widget_type") == "radio":
+            record["answer_bbox"] = mapping.get("bbox")
+            record["anchor_type"] = "radio_region"
+            record["confidence"] = mapping.get("radio_confidence", record.get("confidence"))
+            record["radio_group"] = mapping.get("radio_group")
+            record["export_value"] = mapping.get("export_value")
+            record["widget_type"] = "radio"
+
     anchor_type_counts = Counter(record["anchor_type"] for record in anchor_records)
     field_type_counts = Counter(record["field_type"] for record in anchor_records)
     fields_per_page = Counter(int(record.get("page") or 1) for record in anchor_records)
@@ -1590,6 +1684,8 @@ def build_anchored_mappings(
             "empty_box_count": len(visual_features.get("empty_boxes", []) or []),
             "photo_region_count": len(photo_regions),
         },
+        "comb_fields": comb_diagnostics,
+        "radio_groups": radio_diagnostics,
         "table_cell_count": len(cells),
         "text_box_count": len(text_boxes),
         "anchors": anchor_records,

@@ -168,6 +168,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
     from src.structural_refinement import refine_field_candidates, refine_layout_structure
     from src.pdf_generator import create_pdf_with_fields
     from src.utils import get_center
+    from src.widget_model import build_widget_diagnostics
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -420,6 +421,7 @@ def run_pipeline(image_path: Path, output_dir: Path) -> dict[str, Any]:
         "semantic_region_count": len(semantic_regions),
         "excluded_region_count": len(effective_excluded_regions or []),
         "structural_refinement": structural_refinement_diagnostics,
+        "widgets": build_widget_diagnostics(mappings),
         "unresolved_labels": [
             item.get("text")
             for item in result
