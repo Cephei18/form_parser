@@ -10,16 +10,20 @@ from src.pipelines.textract_pipeline import run_textract_pipeline
 
 logger = logging.getLogger("form_parser.pipeline.router")
 
-
 SUPPORTED_MODES = {"ocr", "textract", "hybrid"}
 
 
 def resolve_pipeline_mode() -> str:
     config = PipelineConfig.from_env()
-    mode = str(config.pipeline_mode or "ocr").strip().lower()
+    mode = str(config.pipeline_mode or "textract").strip().lower()
+
     if mode not in SUPPORTED_MODES:
-        logger.warning("[pipeline] invalid pipeline mode=%r; falling back to OCR", mode)
-        return "ocr"
+        logger.warning(
+            "[pipeline] invalid pipeline mode=%r; falling back to Textract",
+            mode,
+        )
+        return "textract"
+
     return mode
 
 
@@ -46,7 +50,9 @@ def run_pipeline(
         )
 
     if mode == "hybrid":
-        logger.warning("[pipeline] Hybrid mode is reserved; falling back to OCR for now")
+        logger.warning(
+            "[pipeline] Hybrid mode is reserved; falling back to OCR for now"
+        )
 
     logger.info("ACTIVE PIPELINE: OCR")
     logger.info("[pipeline] Running OCR pipeline")

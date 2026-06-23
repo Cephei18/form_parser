@@ -359,6 +359,8 @@ def run_textract_pipeline(
     anchoring_metadata_path = destination_dir / "anchoring_metadata.json"
     comb_debug_path = destination_dir / "comb_debug.json"
     radio_debug_path = destination_dir / "radio_debug.json"
+    dotted_underline_debug_path = destination_dir / "dotted_underline_debug.json"
+    answer_region_debug_path = destination_dir / "answer_region_debug.json"
     confidence_report_path = destination_dir / "confidence_report.json"
     review_artifacts_path = destination_dir / "review_artifacts.json"
     routing_diagnostics_path = destination_dir / "routing_diagnostics.json"
@@ -387,6 +389,8 @@ def run_textract_pipeline(
     save_json(anchoring_metadata_path, anchor_diagnostics)
     save_json(comb_debug_path, anchor_diagnostics.get("comb_fields", {}))
     save_json(radio_debug_path, anchor_diagnostics.get("radio_groups", {}))
+    save_json(dotted_underline_debug_path, anchor_diagnostics.get("dotted_underlines", {}))
+    save_json(answer_region_debug_path, anchor_diagnostics.get("answer_regions", {}))
     save_json(confidence_report_path, confidence_output["confidence_report"])
     save_json(review_artifacts_path, confidence_output["review_artifacts"])
     save_json(routing_diagnostics_path, routing_diagnostics)
@@ -492,6 +496,10 @@ def run_textract_pipeline(
         "comb_debug_path": str(comb_debug_path),
         "radio_groups": anchor_diagnostics.get("radio_groups", {}),
         "radio_debug_path": str(radio_debug_path),
+        "dotted_underlines": anchor_diagnostics.get("dotted_underlines", {}),
+        "dotted_underline_debug_path": str(dotted_underline_debug_path),
+        "answer_regions": anchor_diagnostics.get("answer_regions", {}),
+        "answer_region_debug_path": str(answer_region_debug_path),
         "confidence": confidence_output["diagnostics"],
         "confidence_report_path": str(confidence_report_path),
         "review_artifacts_path": str(review_artifacts_path),

@@ -11,10 +11,25 @@ from typing import Any, Callable
 import cv2
 import numpy as np
 
+from src.answer_region_engine import answer_region_v2_enabled, build_answer_regions
+from src.assignment_solver import (
+    global_assignment_enabled,
+    region_identity,
+    solve_global_assignment,
+)
 from src.comb_detector import apply_comb_detection
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
+from src.dotted_underline_detector import detect_dotted_underlines, split_inline_answer_region
 from src.radio_grouper import apply_radio_grouping
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
+from src.semantic_classifier import (
+    apply_semantic_priors,
+    build_semantic_diagnostics,
+    candidate_region_family,
+    classify_field,
+    semantics_enabled,
+)
+from src.table_intelligence import build_tables, table_intelligence_enabled
 
 logger = logging.getLogger("form_parser.field_anchor")
 
@@ -50,7 +65,14 @@ CHECKBOX_VALUE_TOKENS = {"[x]", "[ ]", "x", "yes", "no"}
 # Answer regions anchored on an already-printed feature must NOT get a second
 # artificial border drawn over them, otherwise the printed line and the widget
 # underline stack into a cluttered double line (Batch A).
-PRINTED_FEATURE_ANCHORS = {"underline", "empty_rectangle", "table_cell"}
+PRINTED_FEATURE_ANCHORS = {
+    "underline",
+    "empty_rectangle",
+    "table_cell",
+    "dotted_underline",
+    "broken_underline",
+    "inline_dotted_field",
+}
 
 # Photo / decorative placeholder detection, as fractions of the page (Batch B).
 PHOTO_REGION_MIN_AREA = 0.012
@@ -428,7 +450,7 @@ def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]], 
     image = cv2.imread(str(image_path))
     if image is None:
         logger.warning("[anchor] unable to read image for visual feature detection: %s", image_path)
-        return {"underlines": [], "empty_boxes": [], "image_size": None}
+        return {"underlines": [], "empty_boxes": [], "synthetic_underlines": [], "dotted_underline_debug": {}, "image_size": None}
 
     image_height, image_width = image.shape[:2]
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -488,9 +510,19 @@ def _detect_visual_features(image_path: Path, text_boxes: list[dict[str, Any]], 
             }
         )
 
+    dotted_debug = detect_dotted_underlines(image_path, page=page)
+    synthetic_underlines = dotted_debug.get("detected", []) or []
+
     return {
         "underlines": _dedupe_feature_boxes(underlines),
         "empty_boxes": _dedupe_feature_boxes(empty_boxes),
+        "synthetic_underlines": _dedupe_feature_boxes(synthetic_underlines),
+        "dotted_underline_debug": {
+            "source_image": str(image_path),
+            "page": page,
+            "detected": synthetic_underlines,
+            "rejected": dotted_debug.get("rejected", []) or [],
+        },
         "image_size": {"width": image_width, "height": image_height},
     }
 
@@ -510,17 +542,29 @@ def _detect_visual_features_for_pages(
     """
     underlines: list[dict[str, Any]] = []
     empty_boxes: list[dict[str, Any]] = []
+    synthetic_underlines: list[dict[str, Any]] = []
+    dotted_debug_pages: list[dict[str, Any]] = []
     image_sizes: dict[int, dict[str, int]] = {}
 
     for page in sorted(page_images):
         features = _detect_visual_features(Path(page_images[page]), text_boxes, page=page)
         underlines.extend(features.get("underlines", []) or [])
         empty_boxes.extend(features.get("empty_boxes", []) or [])
+        synthetic_underlines.extend(features.get("synthetic_underlines", []) or [])
+        dotted_debug = features.get("dotted_underline_debug") or {}
+        if dotted_debug:
+            dotted_debug_pages.append(dotted_debug)
         size = features.get("image_size")
         if size:
             image_sizes[page] = size
 
-    return {"underlines": underlines, "empty_boxes": empty_boxes, "image_sizes": image_sizes}
+    return {
+        "underlines": underlines,
+        "empty_boxes": empty_boxes,
+        "synthetic_underlines": synthetic_underlines,
+        "dotted_underline_debug": dotted_debug_pages,
+        "image_sizes": image_sizes,
+    }
 
 
 def _dedupe_feature_boxes(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -682,6 +726,24 @@ def _candidate(
     return payload
 
 
+def _inline_candidate_from_split(split: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not split:
+        return None
+    bbox = _normalize_box(split.get("answer_bbox"))
+    if not bbox:
+        return None
+    return _candidate(
+        bbox=bbox,
+        anchor_type="inline_dotted_field",
+        score=float(split.get("confidence") or 0.82),
+        reasons=list(split.get("reasons") or ["inline_leader_sequence"]),
+        extra={
+            "source_type": split.get("source_type"),
+            "leader_length": int(split.get("leader_length") or 0),
+        },
+    )
+
+
 def _value_block_candidates(
     field_item: dict[str, Any],
     blocks_by_id: dict[str, dict[str, Any]],
@@ -835,6 +897,28 @@ def _table_cell_candidates(
     ]
 
 
+def _synthetic_covers_solid_fragment(
+    line_box: dict[str, float],
+    page: int,
+    visual_features: dict[str, Any],
+) -> bool:
+    for feature in visual_features.get("synthetic_underlines", []) or []:
+        if int(feature.get("page") or 1) != page:
+            continue
+        if feature.get("source_type") != "broken":
+            continue
+        synthetic_box = feature.get("bbox") or {}
+        if not _normalize_box(synthetic_box):
+            continue
+        same_row = abs(_box_center(line_box)[1] - _box_center(synthetic_box)[1]) <= max(line_box["height"] * 4.0, synthetic_box["height"] * 4.0, 0.01)
+        if not same_row:
+            continue
+        overlap = _intersection_area(line_box, synthetic_box) / max(_box_area(line_box), 1e-9)
+        if overlap >= 0.72:
+            return True
+    return False
+
+
 def _underline_candidates(
     label_box: dict[str, float],
     page: int,
@@ -848,6 +932,8 @@ def _underline_candidates(
         if int(feature.get("page") or 1) != page:
             continue
         line_box = feature["bbox"]
+        if _synthetic_covers_solid_fragment(line_box, page, visual_features):
+            continue
         line_center_x, line_center_y = _box_center(line_box)
         if _overlap_ratio(line_box, label_box) > 0.3:
             continue
@@ -876,6 +962,75 @@ def _underline_candidates(
                 anchor_type="underline",
                 score=score,
                 reasons=["visual_underline", "right_of_label" if right_of_label else "below_label"],
+            )
+        )
+    return candidates
+
+
+def _synthetic_underline_candidates(
+    label_box: dict[str, float],
+    page: int,
+    visual_features: dict[str, Any],
+    metrics: dict[str, float],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    label_center_x, label_center_y = _box_center(label_box)
+    label_bottom = _box_bottom(label_box)
+    label_right = _box_right(label_box)
+    for feature in visual_features.get("synthetic_underlines", []) or []:
+        if int(feature.get("page") or 1) != page:
+            continue
+        line_box = feature.get("bbox") or {}
+        if not _normalize_box(line_box):
+            continue
+        line_center_x, line_center_y = _box_center(line_box)
+        if _overlap_ratio(line_box, label_box) > 0.3:
+            continue
+
+        right_gap = float(line_box["x"]) - label_right
+        right_of_label = right_gap >= -metrics["x_gap"]
+        same_row = abs(line_center_y - label_center_y) <= metrics["wide_row_tolerance"]
+        just_below = 0 <= line_center_y - label_bottom <= metrics["wide_row_tolerance"] * 1.25
+        below_label = line_center_y > label_center_y and abs(line_center_x - label_center_x) <= max(label_box["width"], 0.1)
+        if not (right_of_label and (same_row or just_below)) and not below_label:
+            continue
+
+        field_height = max(metrics["line_height"] * 1.45, line_box["height"] * 5.0)
+        bbox = _normalize_box(
+            {
+                "x": line_box["x"],
+                "y": max(0.0, line_box["y"] - field_height * 0.88),
+                "width": line_box["width"],
+                "height": field_height,
+            }
+        )
+        if not bbox:
+            continue
+
+        source_type = str(feature.get("source_type") or "dotted")
+        anchor_type = "broken_underline" if source_type == "broken" else "dotted_underline"
+        vertical_score = _clamp(1.0 - abs(line_center_y - label_center_y) / max(metrics["wide_row_tolerance"] * 2.0, 0.001))
+        gap_score = _clamp(1.0 - max(right_gap, 0.0) / max(metrics["text_width"] * 2.4, 0.08))
+        feature_confidence = float(feature.get("confidence") or 0.62)
+        if anchor_type == "broken_underline":
+            score = 0.50 + vertical_score * 0.10 + gap_score * 0.08 + feature_confidence * 0.12
+        else:
+            score = 0.58 + vertical_score * 0.11 + gap_score * 0.08 + feature_confidence * 0.10
+        candidates.append(
+            _candidate(
+                bbox=bbox,
+                anchor_type=anchor_type,
+                score=score,
+                reasons=[
+                    f"synthetic_{source_type}_underline",
+                    "right_of_label" if right_of_label else "below_label",
+                    "phase_f_detector",
+                ],
+                extra={
+                    "source_type": source_type,
+                    "segment_count": int(feature.get("segment_count") or 0),
+                    "visual_confidence": round(feature_confidence, 4),
+                },
             )
         )
     return candidates
@@ -1033,6 +1188,11 @@ def _guard_against_label_overlap(
 ) -> dict[str, Any]:
     box = dict(selected["bbox"])
     overlap = _overlap_ratio(box, label_box)
+    if selected.get("anchor_type") == "inline_dotted_field":
+        selected["bbox"] = _round_box(box)
+        selected["label_overlap_ratio"] = round(overlap, 4)
+        selected.setdefault("reasons", []).append("inline_overlap_allowed")
+        return selected
     if overlap <= 0.03 or selected.get("anchor_type") in {"photo_region"}:
         selected["bbox"] = _round_box(box)
         selected["label_overlap_ratio"] = round(overlap, 4)
@@ -1058,6 +1218,141 @@ def _guard_against_label_overlap(
     return selected
 
 
+# Phase I: map generalized AnswerRegion types onto the EXISTING anchor-type
+# vocabulary so the renderer, field classifier, confidence pipeline and Phase H
+# region identity never see a novel string. region_type lives in candidate
+# metadata + diagnostics only.
+_ANSWER_REGION_ANCHOR_TYPE = {
+    "UNDERLINE": "underline",
+    "DOTTED": "dotted_underline",
+    "BROKEN": "broken_underline",
+    "MULTILINE": "underline",  # tall combined bbox -> _classify_field types it multiline
+    "COMB": "empty_rectangle",
+    "GRID": "empty_rectangle",
+    "WHITESPACE": "adjacent_whitespace",
+    "FREEFORM": "adjacent_whitespace",
+    "TABLE_CELL": "table_cell",
+    "SIGNATURE": "signature_region",
+}
+_ANSWER_REGION_BASE_SCORE = {
+    "UNDERLINE": 0.60,
+    "DOTTED": 0.60,
+    "BROKEN": 0.55,
+    "MULTILINE": 0.72,
+    "COMB": 0.66,
+    "GRID": 0.64,
+    "WHITESPACE": 0.48,
+    "FREEFORM": 0.50,
+    "TABLE_CELL": 0.70,
+    "SIGNATURE": 0.72,
+}
+
+
+def _answer_region_candidates(
+    label_box: dict[str, float],
+    page: int,
+    answer_regions: list[Any] | None,
+    metrics: dict[str, float],
+) -> list[dict[str, Any]]:
+    """Adapter (Phase I): turn nearby generalized AnswerRegions into candidates
+    using the same right-of / same-row / below gating the other builders use."""
+    if not answer_regions:
+        return []
+    candidates: list[dict[str, Any]] = []
+    label_center_x, label_center_y = _box_center(label_box)
+    label_right = _box_right(label_box)
+    label_bottom = _box_bottom(label_box)
+    for region in answer_regions:
+        if int(getattr(region, "page", 1)) != page:
+            continue
+        rbox = region.bbox_dict()
+        if _overlap_ratio(rbox, label_box) > 0.3:
+            continue
+        rcx, rcy = _box_center(rbox)
+        right_of_label = float(rbox["x"]) >= label_right - metrics["x_gap"]
+        same_row = abs(rcy - label_center_y) <= metrics["wide_row_tolerance"]
+        below_label = (
+            0 <= float(rbox["y"]) - label_bottom <= metrics["wide_row_tolerance"] * 3.0
+            and abs(rcx - label_center_x) <= max(float(label_box["width"]), 0.2)
+        )
+        if not ((right_of_label and same_row) or below_label):
+            continue
+        region_type = str(getattr(region, "region_type", ""))
+        anchor_type = _ANSWER_REGION_ANCHOR_TYPE.get(region_type, "adjacent_whitespace")
+        base = _ANSWER_REGION_BASE_SCORE.get(region_type, 0.55)
+        proximity = _clamp(1.0 - abs(rcy - label_center_y) / max(metrics["wide_row_tolerance"] * 2.0, 0.001))
+        score = base + proximity * 0.10 + float(getattr(region, "confidence", 0.0)) * 0.10
+        extra: dict[str, Any] = {
+            "answer_region_type": region_type,
+            "answer_region_id": getattr(region, "region_id", None),
+        }
+        line_count = (getattr(region, "metadata", {}) or {}).get("line_count")
+        if line_count is not None:
+            extra["line_count"] = line_count
+        candidates.append(
+            _candidate(
+                bbox=rbox,
+                anchor_type=anchor_type,
+                score=score,
+                reasons=["answer_region_v2", f"region_{region_type.lower()}", "right_of_label" if right_of_label else "below_label"],
+                extra=extra,
+            )
+        )
+    return candidates
+
+
+def _table_input_candidates(
+    label_box: dict[str, float],
+    page: int,
+    table_input_cells: list[Any] | None,
+    metrics: dict[str, float],
+) -> list[dict[str, Any]]:
+    """Adapter (Phase J): turn detected table INPUT cells near the label into
+    ``table_cell`` candidates. Existing anchor vocabulary + cell_id source_id, so
+    the renderer/confidence/Phase-H-identity see nothing new and exclusivity
+    (one input cell -> one field) is enforced by the assignment engine."""
+    if not table_input_cells:
+        return []
+    candidates: list[dict[str, Any]] = []
+    label_center_x, label_center_y = _box_center(label_box)
+    label_right = _box_right(label_box)
+    label_bottom = _box_bottom(label_box)
+    for cell in table_input_cells:
+        if int((getattr(cell, "metadata", {}) or {}).get("page") or 1) != page:
+            continue
+        rbox = cell.bbox_dict()
+        if _overlap_ratio(rbox, label_box) > 0.3:
+            continue
+        rcx, rcy = _box_center(rbox)
+        right_of_label = float(rbox["x"]) >= label_right - metrics["x_gap"]
+        same_row = abs(rcy - label_center_y) <= metrics["wide_row_tolerance"]
+        below_label = (
+            0 <= float(rbox["y"]) - label_bottom <= metrics["wide_row_tolerance"] * 3.0
+            and abs(rcx - label_center_x) <= max(float(label_box["width"]), 0.2)
+        )
+        if not ((right_of_label and same_row) or below_label):
+            continue
+        proximity = _clamp(1.0 - abs(rcy - label_center_y) / max(metrics["wide_row_tolerance"] * 2.0, 0.001))
+        score = 0.80 + proximity * 0.08 + float(getattr(cell, "confidence", 0.0)) * 0.08
+        meta = getattr(cell, "metadata", {}) or {}
+        candidates.append(
+            _candidate(
+                bbox=rbox,
+                anchor_type="table_cell",
+                score=score,
+                reasons=["table_intelligence_input_cell", "right_of_label" if right_of_label else "below_label"],
+                source_id=str(meta.get("cell_id") or ""),
+                extra={
+                    "table_id": meta.get("table_id"),
+                    "row_index": cell.row,
+                    "column_index": cell.column,
+                    "table_input_cell": True,
+                },
+            )
+        )
+    return candidates
+
+
 def _select_answer_region(
     label: str,
     value: str,
@@ -1071,6 +1366,10 @@ def _select_answer_region(
     text_boxes: list[dict[str, Any]],
     metrics: dict[str, float],
     section_band: dict[str, Any] | None = None,
+    inline_candidate: dict[str, Any] | None = None,
+    answer_regions: list[Any] | None = None,
+    table_input_cells: list[Any] | None = None,
+    semantic_field: Any | None = None,
 ) -> tuple[dict[str, Any], str, list[str], list[dict[str, Any]]]:
     preliminary_multiline = "\n" in value or _contains_any(label.lower(), MULTILINE_KEYWORDS)
     field_type, type_reasons = _classify_field(label, value, None, metrics)
@@ -1088,7 +1387,12 @@ def _select_answer_region(
     candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline, section_band))
     candidates.extend(_value_block_candidates(field_item, blocks_by_id, page_by_id, label_box, page))
     candidates.extend(_underline_candidates(label_box, page, visual_features, metrics))
+    candidates.extend(_synthetic_underline_candidates(label_box, page, visual_features, metrics))
     candidates.extend(_rectangle_candidates(label_box, page, visual_features, metrics))
+    candidates.extend(_answer_region_candidates(label_box, page, answer_regions, metrics))
+    candidates.extend(_table_input_candidates(label_box, page, table_input_cells, metrics))
+    if inline_candidate is not None:
+        candidates.append(inline_candidate)
     whitespace = _adjacent_whitespace_candidate(label_box, page, text_boxes, metrics, preliminary_multiline)
     if whitespace:
         candidates.append(whitespace)
@@ -1103,7 +1407,25 @@ def _select_answer_region(
         return fallback, field_type, type_reasons, [fallback]
 
     candidates = [_guard_against_label_overlap(candidate, label_box, metrics) for candidate in candidates]
+    # Phase K: fold semantic region preferences into candidate scores BEFORE
+    # selection so both the legacy argmax and the Phase H assignment consume the
+    # semantically-adjusted scores (the assignment engine itself is unchanged).
+    if semantic_field is not None:
+        candidates = apply_semantic_priors(candidates, semantic_field)
     selected = max(candidates, key=lambda item: float(item.get("score", 0.0)))
+    field_type, type_reasons = _finalize_field_type(label, value, selected, metrics)
+    return selected, field_type, type_reasons, sorted(candidates, key=lambda item: item.get("score", 0.0), reverse=True)
+
+
+def _finalize_field_type(
+    label: str,
+    value: str,
+    selected: dict[str, Any],
+    metrics: dict[str, float],
+) -> tuple[str, list[str]]:
+    """Classify the field from the *selected* answer region. Shared by the
+    legacy argmax path and the Phase H reassignment path so a globally
+    reassigned field is typed exactly as if it had been selected directly."""
     field_type, type_reasons = _classify_field(label, value, selected.get("bbox"), metrics)
     explicit_multiline = "\n" in value or _contains_any(label.lower(), MULTILINE_KEYWORDS)
     if (
@@ -1114,7 +1436,7 @@ def _select_answer_region(
     ):
         field_type = "text"
         type_reasons = ["single_table_cell"]
-    return selected, field_type, type_reasons, sorted(candidates, key=lambda item: item.get("score", 0.0), reverse=True)
+    return field_type, type_reasons
 
 
 def _field_item_page(
@@ -1184,6 +1506,100 @@ def _checkbox_mapping(
     }
 
 
+def _resolve_field(
+    index: int,
+    field_item: dict[str, Any],
+    blocks_by_id: dict[str, dict[str, Any]],
+    page_by_id: dict[str, int],
+    metrics_by_page: dict[int, dict[str, float]],
+    section_index: SectionIndex,
+    cells: list[dict[str, Any]],
+    visual_features: dict[str, Any],
+    text_boxes: list[dict[str, Any]],
+    answer_regions: list[Any] | None = None,
+    table_input_cells: list[Any] | None = None,
+    semantics_on: bool = False,
+) -> dict[str, Any] | None:
+    """Resolve one field to its candidate set + legacy argmax selection.
+
+    Returns ``None`` when the field has no label geometry (the historical skip).
+    Lifted out of ``build_anchored_mappings`` so the same preparation feeds both
+    the build loop and the Phase H pre-pass with no divergence.
+    """
+    field_id = f"anchored_field_{index}"
+    raw_label = _clean_text(field_item.get("key")) or f"Field {index}"
+    label = raw_label
+    value = str(field_item.get("value") or "")
+    key_id = str(field_item.get("key_block_id") or "")
+
+    label_box = _field_item_label_box(field_item, blocks_by_id)
+    if not label_box:
+        logger.info("[anchor] skip field without label geometry label=%r", label)
+        return None
+    page = _field_item_page(field_item, blocks_by_id, page_by_id, default=1)
+    metrics = metrics_by_page.get(page, metrics_by_page.get(1, {}))
+    inline_split = split_inline_answer_region(
+        label,
+        label_box,
+        page=page,
+        line_height=metrics.get("line_height"),
+    )
+    inline_candidate = _inline_candidate_from_split(inline_split)
+    if inline_split and inline_candidate:
+        label = _clean_text(inline_split.get("label")) or label
+        label_box = _normalize_box(inline_split.get("label_bbox")) or label_box
+
+    # Section ownership is resolved from the label's reading position.
+    owner_section = section_index.owner(page, float(label_box["y"]))
+    section_band = section_index.band(owner_section)
+
+    # Phase K: classify the field's meaning (label + section + value) so its
+    # region preferences can steer candidate scoring.
+    semantic_field = None
+    if semantics_on:
+        semantic_field = classify_field(
+            label,
+            section_title=owner_section.get("title"),
+            value=value,
+        )
+
+    selected, field_type, type_reasons, candidates = _select_answer_region(
+        label,
+        value,
+        field_item,
+        label_box,
+        page,
+        blocks_by_id,
+        page_by_id,
+        cells,
+        visual_features,
+        text_boxes,
+        metrics,
+        section_band,
+        inline_candidate=inline_candidate,
+        answer_regions=answer_regions,
+        table_input_cells=table_input_cells,
+        semantic_field=semantic_field,
+    )
+    return {
+        "field_id": field_id,
+        "semantic_field": semantic_field,
+        "raw_label": raw_label,
+        "label": label,
+        "value": value,
+        "key_id": key_id,
+        "label_box": label_box,
+        "page": page,
+        "metrics": metrics,
+        "owner_section": owner_section,
+        "inline_split": inline_split,
+        "selected": selected,
+        "field_type": field_type,
+        "type_reasons": type_reasons,
+        "candidates": candidates,
+    }
+
+
 def build_anchored_mappings(
     raw_response: dict[str, Any],
     parsed: dict[str, Any],
@@ -1234,8 +1650,11 @@ def build_anchored_mappings(
     visual_features: dict[str, Any] = {
         "underlines": detected.get("underlines", []),
         "empty_boxes": detected.get("empty_boxes", []),
+        "synthetic_underlines": detected.get("synthetic_underlines", []),
     }
     image_sizes: dict[int, dict[str, int]] = detected.get("image_sizes", {}) or {}
+    dotted_debug_pages = detected.get("dotted_underline_debug", []) or []
+    source_images_by_page = {int(page): str(path) for page, path in page_images_norm.items()}
     # Batch B: peel decorative/photo placeholders out of the empty-rectangle pool
     # so they can never be selected as an input region for a neighbouring label.
     photo_regions, visual_features["empty_boxes"] = _split_photo_regions(visual_features.get("empty_boxes", []))
@@ -1267,45 +1686,156 @@ def build_anchored_mappings(
 
     mappings: list[dict[str, Any]] = []
     anchor_records: list[dict[str, Any]] = []
+    answer_region_debug_records: list[dict[str, Any]] = []
     deduped_token_checkbox_count = 0
 
-    seen_key_ids: set[str] = set()
+    # --- Phase I: generalized answer-region engine ----------------------------
+    # Build one unified set of AnswerRegions (multiline stacks, merged broken
+    # underlines, signatures, freeform whitespace, table cells, ...) from the
+    # already-detected features. Gated OFF by default; when OFF the engine is
+    # never invoked and no extra candidates are produced.
+    answer_region_v2_on = answer_region_v2_enabled()
+    answer_region_result = None
+    answer_regions: list[Any] = []
+    if answer_region_v2_on:
+        answer_region_result = build_answer_regions(
+            visual_features,
+            text_boxes=text_boxes,
+            table_cells=cells,
+            metrics_by_page=metrics_by_page,
+        )
+        answer_regions = answer_region_result.regions
+
+    # --- Phase J: table intelligence ------------------------------------------
+    # Classify each Textract table (input / repeating / matrix / line-item /
+    # layout) and surface its empty INPUT cells. Gated OFF by default; when OFF
+    # the engine is never invoked and no table-input candidates are produced.
+    table_intelligence_on = table_intelligence_enabled()
+    table_result = None
+    table_input_cells: list[Any] = []
+    if table_intelligence_on:
+        table_result = build_tables(cells, sections=sections, metrics_by_page=metrics_by_page)
+        table_input_cells = table_result.input_cells
+
+    # --- Phase K: semantic classification -------------------------------------
+    # Classify each field's meaning and let its region preferences steer
+    # candidate scoring. Gated OFF by default; when OFF no field is classified
+    # and no scores change.
+    semantics_on = semantics_enabled()
+    semantic_records: list[dict[str, Any]] = []
+
+    # --- Per-field resolution (candidate generation + legacy argmax) ----------
+    # Resolve every field once. Each record carries the field's candidate set
+    # and the candidate the greedy argmax would have chosen. This is the same
+    # computation as before, lifted out so it can also feed the Phase H pre-pass
+    # without recomputation or drift.
+    resolved_records: list[dict[str, Any]] = []
     for index, field_item in enumerate(parsed.get("field_items", []) or [], start=1):
-        label = _clean_text(field_item.get("key")) or f"Field {index}"
-        value = str(field_item.get("value") or "")
-        key_id = str(field_item.get("key_block_id") or "")
-        if key_id:
-            seen_key_ids.add(key_id)
-
-        label_box = _field_item_label_box(field_item, blocks_by_id)
-        if not label_box:
-            logger.info("[anchor] skip field without label geometry label=%r", label)
-            continue
-        page = _field_item_page(field_item, blocks_by_id, page_by_id, default=1)
-        metrics = metrics_by_page.get(page, metrics_by_page.get(1, {}))
-
-        # Section ownership is resolved from the label's reading position.
-        owner_section = section_index.owner(page, float(label_box["y"]))
-        section_band = section_index.band(owner_section)
-
-        selected, field_type, type_reasons, candidates = _select_answer_region(
-            label,
-            value,
+        rec = _resolve_field(
+            index,
             field_item,
-            label_box,
-            page,
             blocks_by_id,
             page_by_id,
+            metrics_by_page,
+            section_index,
             cells,
             visual_features,
             text_boxes,
-            metrics,
-            section_band,
+            answer_regions=answer_regions,
+            table_input_cells=table_input_cells,
+            semantics_on=semantics_on,
         )
+        if rec is not None:
+            resolved_records.append(rec)
+
+    # --- Phase H: global assignment ------------------------------------------
+    # Replace per-field greedy argmax with one document-wide max-weight
+    # bipartite assignment so two fields can never claim the same physical
+    # region. Gated OFF by default; when OFF, overrides is empty and every field
+    # keeps its legacy argmax selection (behaviour identical to before).
+    global_assignment_on = global_assignment_enabled()
+    if global_assignment_on:
+        assignment_overrides, assignment_diagnostics = solve_global_assignment(
+            [
+                {
+                    "field_id": rec["field_id"],
+                    "page": rec["page"],
+                    "candidates": rec["candidates"],
+                    "legacy_selected": rec["selected"],
+                }
+                for rec in resolved_records
+            ]
+        )
+    else:
+        assignment_overrides, assignment_diagnostics = {}, None
+
+    for rec in resolved_records:
+        field_id = rec["field_id"]
+        raw_label = rec["raw_label"]
+        label = rec["label"]
+        value = rec["value"]
+        key_id = rec["key_id"]
+        label_box = rec["label_box"]
+        page = rec["page"]
+        metrics = rec["metrics"]
+        owner_section = rec["owner_section"]
+        inline_split = rec["inline_split"]
+        selected = rec["selected"]
+        field_type = rec["field_type"]
+        type_reasons = rec["type_reasons"]
+        candidates = rec["candidates"]
+        semantic_field = rec.get("semantic_field")
+
+        # When the solver hands this field a different physical region than the
+        # greedy argmax did, swap to that candidate and re-type from its box.
+        reassigned_from: dict[str, Any] | None = None
+        if global_assignment_on:
+            target_region_id = assignment_overrides.get(field_id)
+            if target_region_id:
+                match = next(
+                    (c for c in candidates if region_identity(c, page, field_id) == target_region_id),
+                    None,
+                )
+                if match is not None and match is not selected:
+                    reassigned_from = {
+                        "anchor_type": selected.get("anchor_type"),
+                        "score": round(float(selected.get("score", 0.0)), 4),
+                    }
+                    selected = match
+                    field_type, type_reasons = _finalize_field_type(label, value, selected, metrics)
 
         answer_box = selected["bbox"]
         score = float(selected.get("score", 0.0))
         anchor_type = selected.get("anchor_type")
+        debug_entry = {
+            "field_id": field_id,
+            "raw_label": raw_label,
+            "label": label,
+            "page": page,
+            "source_image": source_images_by_page.get(page),
+            "selected_type": anchor_type,
+            "selected_confidence": round(score, 4),
+            "selected_bbox": _round_box(answer_box),
+            "candidate_count": len(candidates),
+            "inline_split": inline_split or None,
+            "reassigned_from": reassigned_from,
+            "candidates": [
+                {
+                    "type": candidate.get("anchor_type"),
+                    "confidence": candidate.get("score"),
+                    "bbox": candidate.get("bbox"),
+                    "page": page,
+                    "source_image": source_images_by_page.get(page),
+                    "reasons": candidate.get("reasons", []),
+                    "rejection_reasons": []
+                    if candidate is selected
+                    else ["lower_score_than_selected"],
+                }
+                for candidate in candidates
+            ],
+            "outcome": "selected",
+        }
+        answer_region_debug_records.append(debug_entry)
 
         # Batch C (moderate): drop purely-estimated fields we could not resolve
         # to any plausible region rather than rendering them as low-value clutter.
@@ -1316,11 +1846,13 @@ def build_anchored_mappings(
         ):
             if not (confidence_pipeline_enabled() and review_queue_enabled()):
                 logger.info("[anchor] drop unresolved low-confidence field label=%r score=%.3f", label, score)
+                debug_entry["outcome"] = "dropped_unresolved_low_confidence"
                 continue
             logger.info("[anchor] preserve unresolved low-confidence field for review label=%r score=%.3f", label, score)
+            debug_entry["outcome"] = "preserved_for_review"
             confidence = max(0.0, min(1.0, score))
             review_mapping = {
-                "field_id": f"anchored_field_{index}",
+                "field_id": field_id,
                 "label": label,
                 "qualified_label": qualify_label(owner_section, label),
                 "section": section_summary(owner_section),
@@ -1384,6 +1916,7 @@ def build_anchored_mappings(
             and _overlaps_photo_region(answer_box, page, photo_regions)
         ):
             logger.info("[anchor] suppress field overlapping photo region label=%r anchor=%s", label, anchor_type)
+            debug_entry["outcome"] = "suppressed_photo_overlap"
             continue
 
         # Checkbox deduplication: a token checkbox ("[X]"/"[ ]") emitted from
@@ -1397,6 +1930,7 @@ def build_anchored_mappings(
         ):
             deduped_token_checkbox_count += 1
             logger.info("[anchor] dedupe token checkbox into SELECTION_ELEMENT label=%r", label)
+            debug_entry["outcome"] = "deduped_token_checkbox"
             continue
 
         multiline_group_size = max(1, value.count("\n") + 1 if value else 1)
@@ -1405,7 +1939,7 @@ def build_anchored_mappings(
 
         confidence = max(0.0, min(1.0, score))
         mapping = {
-            "field_id": f"anchored_field_{index}",
+            "field_id": field_id,
             "label": label,
             "qualified_label": qualify_label(owner_section, label),
             "section": section_summary(owner_section),
@@ -1440,6 +1974,20 @@ def build_anchored_mappings(
                 "value_block_ids": field_item.get("value_block_ids", []) or [],
             },
         }
+        # Phase K: attach semantic metadata + record the (possibly score-shifting)
+        # prior on the selected region for diagnostics.
+        if semantic_field is not None:
+            mapping["semantic"] = semantic_field.to_dict()
+            applied_prior = float(selected.get("semantic_prior") or 0.0)
+            semantic_records.append(
+                {
+                    "field_id": field_id,
+                    "label": label,
+                    "semantic": mapping["semantic"],
+                    "applied_prior": applied_prior,
+                    "selected_family": candidate_region_family(selected),
+                }
+            )
         mappings.append(mapping)
         anchor_records.append(
             {
@@ -1658,6 +2206,16 @@ def build_anchored_mappings(
         if record.get("field_type") == "photo" and float(record.get("label_overlap_ratio") or 0.0) > 0.03
     )
     legacy_overlap_count = sum(1 for record in anchor_records if record.get("label_bbox") and record.get("field_type") != "photo")
+    answer_region_selected_counts = Counter(
+        str(record.get("selected_type") or "unknown") for record in answer_region_debug_records
+    )
+    dotted_detected = visual_features.get("synthetic_underlines", []) or []
+    dotted_rejected = []
+    for page_debug in dotted_debug_pages:
+        for rejected in page_debug.get("rejected", []) or []:
+            enriched = dict(rejected)
+            enriched.setdefault("source_image", page_debug.get("source_image"))
+            dotted_rejected.append(enriched)
 
     diagnostics = {
         "engine": "semantic_visual_anchor",
@@ -1681,8 +2239,21 @@ def build_anchored_mappings(
         "label_overlap_reduction_estimate": max(0, legacy_overlap_count - label_overlap_count),
         "visual_features": {
             "underline_count": len(visual_features.get("underlines", []) or []),
+            "synthetic_underline_count": len(dotted_detected),
             "empty_box_count": len(visual_features.get("empty_boxes", []) or []),
             "photo_region_count": len(photo_regions),
+        },
+        "dotted_underlines": {
+            "detected_count": len(dotted_detected),
+            "rejected_count": len(dotted_rejected),
+            "detected": dotted_detected,
+            "rejected": dotted_rejected[:120],
+            "pages": dotted_debug_pages,
+        },
+        "answer_regions": {
+            "candidate_count": sum(int(item.get("candidate_count") or 0) for item in answer_region_debug_records),
+            "selected_type_counts": dict(answer_region_selected_counts),
+            "regions": answer_region_debug_records,
         },
         "comb_fields": comb_diagnostics,
         "radio_groups": radio_diagnostics,
@@ -1690,6 +2261,18 @@ def build_anchored_mappings(
         "text_box_count": len(text_boxes),
         "anchors": anchor_records,
     }
+    diagnostics["global_assignment"] = (
+        assignment_diagnostics if assignment_diagnostics is not None else {"enabled": False}
+    )
+    diagnostics["answer_region_engine"] = (
+        answer_region_result.to_debug_dict() if answer_region_result is not None else {"enabled": False}
+    )
+    diagnostics["table_intelligence"] = (
+        table_result.to_debug_dict() if table_result is not None else {"enabled": False}
+    )
+    diagnostics["semantic_classifier"] = (
+        build_semantic_diagnostics(semantic_records) if semantics_on else {"enabled": False}
+    )
 
     return {
         "mappings": mappings,
@@ -1698,6 +2281,7 @@ def build_anchored_mappings(
         "sections": sections,
         "visual_features": {
             "underlines": visual_features.get("underlines", []),
+            "synthetic_underlines": visual_features.get("synthetic_underlines", []),
             "empty_boxes": visual_features.get("empty_boxes", []),
             "photo_regions": photo_regions,
         },
@@ -1730,6 +2314,13 @@ def draw_anchor_debug_overlay(
             continue
         x, y, w, h = to_px(feature["bbox"])
         cv2.rectangle(image, (x, y), (x + w, y + max(h, 2)), (160, 160, 160), 1)
+
+    for feature in (visual_features or {}).get("synthetic_underlines", []) or []:
+        if int(feature.get("page") or 1) != 1:
+            continue
+        x, y, w, h = to_px(feature["bbox"])
+        color = (60, 170, 220) if feature.get("source_type") != "broken" else (60, 120, 230)
+        cv2.rectangle(image, (x, y), (x + w, y + max(h, 3)), color, 2)
 
     for feature in (visual_features or {}).get("empty_boxes", []) or []:
         if int(feature.get("page") or 1) != 1:
