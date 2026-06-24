@@ -39,6 +39,7 @@ htmlcov/
 # IDE / editor
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store
@@ -58,6 +59,8 @@ output/
 uploads/
 tmp/
 temp/
+# Evaluation harness run outputs (generated; corpus + ground truth ARE tracked)
+eval_runs/
 input/*.pdf
 input/*.png
 input/*.jpg
@@ -85,7 +88,7 @@ secrets.json
 *.secret
 
 # Serverless / Lambda deployment local outputs
-# (gitignore has no inline comments — keep patterns on their own lines)
+# Keep ignore patterns on their own lines.
 # out.json: `aws lambda invoke` output produced by the deploy runbook
 out.json
 *.lambda-invoke.json

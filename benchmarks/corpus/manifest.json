@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "description": "Form-parser evaluation corpus. One form per production failure mode. Forms whose ground_truth.json is not yet authored are listed here for planning but skipped by the evaluator until annotated.",
+  "forms": [
+    {
+      "dir": "_example_synthetic",
+      "doc_class": "synthetic",
+      "page_count": 2,
+      "failure_modes": ["duplicate_mappings", "comb_fragmentation", "non_fillable_false_positive"],
+      "status": "annotated",
+      "note": "Bundled runnable example with shipped predictions. Exercises every metric."
+    },
+    {
+      "dir": "simple_1page",
+      "doc_class": "generic",
+      "page_count": 1,
+      "failure_modes": [],
+      "status": "unannotated",
+      "note": "Baseline: a clean single-page form that already works. Guards against regression."
+    },
+    {
+      "dir": "etf_application_8page",
+      "doc_class": "banking",
+      "page_count": 8,
+      "failure_modes": ["large_doc_degradation", "repeated_sections", "non_interactive_pages"],
+      "status": "unannotated",
+      "note": "The real 8-page ETF form already in input/. Multi-page + repeated applicant blocks."
+    },
+    {
+      "dir": "comb_ssn_account",
+      "doc_class": "banking",
+      "page_count": 1,
+      "failure_modes": ["character_boxes_as_fields", "dotted_leader_failure"],
+      "status": "unannotated",
+      "note": "Comb-heavy form (SSN / account number boxes). Tests logical-widget grouping."
+    },
+    {
+      "dir": "checkbox_matrix_medical",
+      "doc_class": "healthcare",
+      "page_count": 2,
+      "failure_modes": ["checkbox_matrix_as_widgets", "wrong_region_detection"],
+      "status": "unannotated",
+      "note": "Insurance/medical form with checkbox & radio matrices."
+    },
+    {
+      "dir": "multi_applicant_banking",
+      "doc_class": "banking",
+      "page_count": 3,
+      "failure_modes": ["repeated_sections", "duplicate_mappings"],
+      "status": "unannotated",
+      "note": "Repeated applicant sections -> assignment ambiguity / scope leaks."
+    },
+    {
+      "dir": "table_dense_employment",
+      "doc_class": "employment",
+      "page_count": 2,
+      "failure_modes": ["massive_tables_confuse_assignment", "wrong_region_detection"],
+      "status": "unannotated",
+      "note": "Table-dense employment form. Tests table input-cell vs layout-table handling."
+    },
+    {
+      "dir": "instructions_plus_form_mixed",
+      "doc_class": "generic",
+      "page_count": 4,
+      "failure_modes": ["non_interactive_pages"],
+      "status": "unannotated",
+      "note": "Instructions/cover pages mixed with fillable pages. Tests page-type gating."
+    }
+  ]
+}

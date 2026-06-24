@@ -17,8 +17,11 @@ from src.assignment_solver import (
     region_identity,
     solve_global_assignment,
 )
+from src.checkbox_validator import checkbox_validation_enabled, validate_checkboxes
 from src.comb_detector import apply_comb_detection
+from src.comb_diagnostics import analyze_comb_groups, comb_diagnostics_enabled
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
+from src.dotted_leader_diagnostics import analyze_dotted_leaders, dotted_leader_diagnostics_enabled
 from src.dotted_underline_detector import detect_dotted_underlines, split_inline_answer_region
 from src.radio_grouper import apply_radio_grouping
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
@@ -2110,6 +2113,20 @@ def build_anchored_mappings(
         mappings,
         text_boxes=text_boxes,
     )
+
+    # --- False-checkbox rejection (Phase L0.1) --------------------------------
+    # Drop "checkboxes" that are really narrow OCR glyphs (11 / II / |). Gated
+    # OFF by default; when OFF mappings are unchanged and diagnostics record that
+    # the pass did not run.
+    checkbox_validation_diag: dict[str, Any] = {"enabled": False}
+    if checkbox_validation_enabled():
+        mappings, checkbox_validation_diag = validate_checkboxes(
+            mappings,
+            page_images=page_images_norm,
+            text_boxes=text_boxes,
+            image_sizes=image_sizes,
+        )
+
     anchor_records_by_id = {
         str(record.get("field_id")): record for record in anchor_records if record.get("field_id")
     }
@@ -2217,6 +2234,19 @@ def build_anchored_mappings(
             enriched.setdefault("source_image", page_debug.get("source_image"))
             dotted_rejected.append(enriched)
 
+    # --- Diagnostics-only analyzers (Phase L0.2 / L0.4) -----------------------
+    # Both are pure observation: gated OFF by default and never mutate mappings.
+    comb_diagnostics_v2: dict[str, Any] = {"enabled": False}
+    if comb_diagnostics_enabled():
+        comb_diagnostics_v2 = analyze_comb_groups(
+            mappings,
+            text_boxes=text_boxes,
+            selection_regions=selection_regions,
+        )
+    dotted_leader_source: dict[str, Any] = {"enabled": False}
+    if dotted_leader_diagnostics_enabled():
+        dotted_leader_source = analyze_dotted_leaders(dotted_debug_pages, text_boxes=text_boxes)
+
     diagnostics = {
         "engine": "semantic_visual_anchor",
         "field_count": len(anchor_records),
@@ -2257,6 +2287,9 @@ def build_anchored_mappings(
         },
         "comb_fields": comb_diagnostics,
         "radio_groups": radio_diagnostics,
+        "checkbox_validation": checkbox_validation_diag,
+        "comb_diagnostics": comb_diagnostics_v2,
+        "dotted_leader_source": dotted_leader_source,
         "table_cell_count": len(cells),
         "text_box_count": len(text_boxes),
         "anchors": anchor_records,

@@ -10,6 +10,7 @@ from typing import Any
 import cv2
 
 from src.artifact_store import get_artifact_store
+from src.confidence_calibration import apply_confidence_calibration
 from src.confidence_pipeline import apply_confidence_pipeline, draw_confidence_overlay
 from src.document_routing import (
     ROUTE_ASYNC,
@@ -351,6 +352,13 @@ def run_textract_pipeline(
     mappings = confidence_output["mappings"]
     render_mappings = confidence_output["render_mappings"]
 
+    # Phase L0.3: document-level confidence calibration. Additive + flag-gated
+    # (default OFF). It only attaches `calibration` / `calibrated_confidence_score`
+    # keys in place — the original score and render policy are untouched — so
+    # render_mappings (a subset of the same dicts) stays consistent.
+    calibration_output = apply_confidence_calibration(mappings)
+    mappings = calibration_output["mappings"]
+
     mappings_path = destination_dir / "mappings.json"
     result_path = destination_dir / "result.json"
     mapping_image_path = destination_dir / "mapping.png"
@@ -362,6 +370,7 @@ def run_textract_pipeline(
     dotted_underline_debug_path = destination_dir / "dotted_underline_debug.json"
     answer_region_debug_path = destination_dir / "answer_region_debug.json"
     confidence_report_path = destination_dir / "confidence_report.json"
+    confidence_calibration_path = destination_dir / "confidence_calibration.json"
     review_artifacts_path = destination_dir / "review_artifacts.json"
     routing_diagnostics_path = destination_dir / "routing_diagnostics.json"
     validation_report_path = destination_dir / "validation_report.json"
@@ -392,6 +401,7 @@ def run_textract_pipeline(
     save_json(dotted_underline_debug_path, anchor_diagnostics.get("dotted_underlines", {}))
     save_json(answer_region_debug_path, anchor_diagnostics.get("answer_regions", {}))
     save_json(confidence_report_path, confidence_output["confidence_report"])
+    save_json(confidence_calibration_path, calibration_output["diagnostics"])
     save_json(review_artifacts_path, confidence_output["review_artifacts"])
     save_json(routing_diagnostics_path, routing_diagnostics)
     save_json(validation_report_path, validation_report)
@@ -502,6 +512,8 @@ def run_textract_pipeline(
         "answer_region_debug_path": str(answer_region_debug_path),
         "confidence": confidence_output["diagnostics"],
         "confidence_report_path": str(confidence_report_path),
+        "confidence_calibration": calibration_output["diagnostics"],
+        "confidence_calibration_path": str(confidence_calibration_path),
         "review_artifacts_path": str(review_artifacts_path),
         "confidence_overlay_path": str(confidence_overlay_path) if confidence_overlay_written else None,
         "hierarchy": section_hierarchy_diag,

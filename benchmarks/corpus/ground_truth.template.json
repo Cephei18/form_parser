@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "form_id": "REPLACE_ME",
+  "doc_class": "banking | healthcare | employment | generic | synthetic",
+  "source": "source.pdf",
+  "page_count": 1,
+  "page_types": {
+    "1": "fillable"
+  },
+  "failure_modes": [],
+  "widgets": [
+    {
+      "widget_id": "w1",
+      "page": 1,
+      "type": "text",
+      "label": "Example label",
+      "bbox": { "x": 0.10, "y": 0.20, "width": 0.30, "height": 0.03 },
+      "section_path": ["Section A"],
+      "cell_count": 1,
+      "repeat_group_id": null,
+      "fillable": true
+    }
+  ],
+  "_field_help": {
+    "page_types": "Per-page label. Non-fillable values (instructions|cover|terms|signature_only|blank) make every prediction on that page a false positive.",
+    "type": "One of: text, multiline, date, comb, checkbox, checkbox_group, radio_group, signature, table_cell.",
+    "bbox": "Page-local FRACTIONS (0..1), top-left origin: {x, y, width, height}. Same convention as the pipeline's mappings.json bbox.",
+    "cell_count": "For comb / checkbox_group / radio_group, the number of logical cells/options. >1 marks the widget as a 'group' for fragmentation scoring.",
+    "repeat_group_id": "Same id on each copy of a repeated section (e.g. 'applicant'), so repeated-section recall can be measured.",
+    "fillable": "false for a labelled region that should NOT become a widget (e.g. a printed example)."
+  }
+}

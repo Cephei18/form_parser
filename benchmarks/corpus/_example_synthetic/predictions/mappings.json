@@ -1,0 +1,51 @@
+[
+  {
+    "field_id": 1,
+    "label": "First Name",
+    "field_type": "text",
+    "page": 1,
+    "bbox": { "x": 0.11, "y": 0.205, "width": 0.29, "height": 0.03 }
+  },
+  {
+    "field_id": 2,
+    "label": "I agree",
+    "field_type": "checkbox",
+    "page": 1,
+    "bbox": { "x": 0.10, "y": 0.40, "width": 0.02, "height": 0.02 }
+  },
+  {
+    "field_id": 3,
+    "label": "I agree (duplicate)",
+    "field_type": "checkbox",
+    "page": 1,
+    "bbox": { "x": 0.101, "y": 0.401, "width": 0.02, "height": 0.02 }
+  },
+  {
+    "field_id": 4,
+    "label": "SSN box 1-4",
+    "field_type": "text",
+    "page": 1,
+    "bbox": { "x": 0.10, "y": 0.30, "width": 0.18, "height": 0.03 }
+  },
+  {
+    "field_id": 5,
+    "label": "SSN box 5-9",
+    "field_type": "text",
+    "page": 1,
+    "bbox": { "x": 0.28, "y": 0.30, "width": 0.18, "height": 0.03 }
+  },
+  {
+    "field_id": 6,
+    "label": "photo placeholder",
+    "field_type": "photo",
+    "page": 1,
+    "bbox": { "x": 0.80, "y": 0.10, "width": 0.15, "height": 0.18 }
+  },
+  {
+    "field_id": 7,
+    "label": "see reverse",
+    "field_type": "text",
+    "page": 2,
+    "bbox": { "x": 0.10, "y": 0.10, "width": 0.30, "height": 0.03 }
+  }
+]
