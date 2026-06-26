@@ -17,7 +17,11 @@ from src.assignment_solver import (
     region_identity,
     solve_global_assignment,
 )
-from src.checkbox_validator import checkbox_validation_enabled, validate_checkboxes
+from src.checkbox_validator import (
+    checkbox_validation_enabled,
+    checkbox_validation_observe_enabled,
+    validate_checkboxes,
+)
 from src.comb_detector import apply_comb_detection
 from src.comb_diagnostics import analyze_comb_groups, comb_diagnostics_enabled
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
@@ -2115,16 +2119,19 @@ def build_anchored_mappings(
     )
 
     # --- False-checkbox rejection (Phase L0.1) --------------------------------
-    # Drop "checkboxes" that are really narrow OCR glyphs (11 / II / |). Gated
-    # OFF by default; when OFF mappings are unchanged and diagnostics record that
-    # the pass did not run.
+    # Drop "checkboxes" that are really narrow OCR glyphs (11 / II / |). Two
+    # independent flags, both default OFF: ENFORCE drops; OBSERVE only scores +
+    # diagnoses without dropping (precision measurement). ENFORCE wins if both
+    # are set. When neither is set mappings are unchanged.
     checkbox_validation_diag: dict[str, Any] = {"enabled": False}
-    if checkbox_validation_enabled():
+    _cb_enforce = checkbox_validation_enabled()
+    if _cb_enforce or checkbox_validation_observe_enabled():
         mappings, checkbox_validation_diag = validate_checkboxes(
             mappings,
             page_images=page_images_norm,
             text_boxes=text_boxes,
             image_sizes=image_sizes,
+            observe=not _cb_enforce,
         )
 
     anchor_records_by_id = {
@@ -2245,7 +2252,17 @@ def build_anchored_mappings(
         )
     dotted_leader_source: dict[str, Any] = {"enabled": False}
     if dotted_leader_diagnostics_enabled():
-        dotted_leader_source = analyze_dotted_leaders(dotted_debug_pages, text_boxes=text_boxes)
+        leader_field_labels = [
+            {"page": rec.get("page"), "bbox": rec.get("label_box")}
+            for rec in resolved_records
+            if isinstance(rec.get("label_box"), dict)
+        ]
+        dotted_leader_source = analyze_dotted_leaders(
+            dotted_debug_pages,
+            text_boxes=text_boxes,
+            field_labels=leader_field_labels,
+            mappings=mappings,
+        )
 
     diagnostics = {
         "engine": "semantic_visual_anchor",

@@ -69,6 +69,75 @@ def _is_dot_run(text: str) -> bool:
     return dots >= 3 and bool(_DOTRUN_RE.match(text or ""))
 
 
+def _center(box: dict[str, float]) -> tuple[float, float]:
+    return float(box["x"]) + float(box["width"]) / 2.0, float(box["y"]) + float(box["height"]) / 2.0
+
+
+def _leader_associates_label(leader: dict[str, float], label: dict[str, float]) -> bool:
+    """Approximate the field engine's association gate: a leader is usable by a
+    field only if its label sits just left (same row) or just above it. Mirrors
+    ``_synthetic_underline_candidates`` geometry (page-local fractions)."""
+    lcx, lcy = _center(leader)
+    bcx, bcy = _center(label)
+    label_right = float(label["x"]) + float(label["width"])
+    label_bottom = float(label["y"]) + float(label["height"])
+    right_same_row = float(leader["x"]) >= label_right - 0.04 and abs(lcy - bcy) <= 0.025
+    below = lcy > bcy and abs(lcx - bcx) <= max(float(label["width"]), 0.10) and 0 <= (float(leader["y"]) - label_bottom) <= 0.035
+    return right_same_row or below
+
+
+def _recall_accounting(
+    dotted_debug_pages: list[dict[str, Any]],
+    field_labels: list[dict[str, Any]],
+    mappings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Read-only accounting for the leaders-detected vs leaders-used gap.
+
+    Approximate: leader->selection identity is not threaded through the engine,
+    so ``leaders_selected`` is counted from final mappings and the per-leader
+    association is recomputed geometrically. Intended for observability, not as
+    a behavioural gate.
+    """
+    labels_by_page: dict[int, list[dict[str, float]]] = {}
+    for rec in field_labels or []:
+        box = rec.get("bbox")
+        if isinstance(box, dict):
+            labels_by_page.setdefault(int(rec.get("page") or 1), []).append(box)
+
+    detected = 0
+    associated = 0
+    for page_debug in dotted_debug_pages or []:
+        page = int(page_debug.get("page") or 1)
+        page_labels = labels_by_page.get(page, [])
+        for det in page_debug.get("detected", []) or []:
+            box = det.get("bbox")
+            if not isinstance(box, dict):
+                continue
+            detected += 1
+            if any(_leader_associates_label(box, label) for label in page_labels):
+                associated += 1
+
+    selected = 0
+    for m in mappings or []:
+        anchoring = m.get("anchoring") if isinstance(m.get("anchoring"), dict) else {}
+        if str(anchoring.get("anchor_type") or "") in {"dotted_underline", "broken_underline"}:
+            selected += 1
+
+    no_assoc = detected - associated
+    assoc_not_selected = max(0, associated - selected)
+    return {
+        "leaders_detected": detected,
+        "leaders_associated_to_a_label": associated,
+        "leaders_selected": selected,
+        "filter_reason_counts": {
+            "no_field_label_association": no_assoc,
+            "associated_but_lost_selection": assoc_not_selected,
+            "selected_as_answer_region": selected,
+        },
+        "note": "approximate; leader->selection identity not threaded through the engine",
+    }
+
+
 def _dot_text_boxes(text_boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [tb for tb in text_boxes if _is_dot_run(str(tb.get("text") or ""))]
 
@@ -77,8 +146,14 @@ def analyze_dotted_leaders(
     dotted_debug_pages: list[dict[str, Any]] | None,
     *,
     text_boxes: list[dict[str, Any]] | None = None,
+    field_labels: list[dict[str, Any]] | None = None,
+    mappings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Classify CV-detected dotted runs by origin and find OCR-only dot runs."""
+    """Classify CV-detected dotted runs by origin and find OCR-only dot runs.
+
+    When ``field_labels`` + ``mappings`` are supplied, also emit the
+    leaders-detected vs leaders-used recall accounting (Workstream A).
+    """
     dotted_debug_pages = dotted_debug_pages or []
     text_boxes = text_boxes or []
     dot_texts = _dot_text_boxes(text_boxes)
@@ -126,7 +201,7 @@ def analyze_dotted_leaders(
         if i not in matched_text_ids
     ]
 
-    return {
+    result = {
         "enabled": True,
         "feature_flag": "FORM_PARSER_DOTTED_LEADER_DIAGNOSTICS_ENABLED",
         "behavior_change": False,
@@ -137,3 +212,6 @@ def analyze_dotted_leaders(
         "classified": classified[:200],
         "ocr_only_dot_runs": ocr_only[:200],
     }
+    if field_labels is not None or mappings is not None:
+        result["recall"] = _recall_accounting(dotted_debug_pages, field_labels or [], mappings or [])
+    return result

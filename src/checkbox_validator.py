@@ -58,6 +58,15 @@ def checkbox_validation_enabled() -> bool:
     return _bool_env("FORM_PARSER_CHECKBOX_VALIDATION_ENABLED", False)
 
 
+def checkbox_validation_observe_enabled() -> bool:
+    """Observe mode: score + diagnose every checkbox but NEVER drop one.
+
+    Lets us measure rejection precision against real forms before any
+    destructive filtering is switched on. Independent of the enforce flag.
+    """
+    return _bool_env("FORM_PARSER_CHECKBOX_VALIDATION_OBSERVE", False)
+
+
 def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
@@ -135,18 +144,27 @@ def _contour_closure(image: "np.ndarray | None", box: dict[str, float]) -> dict[
     crop_area = float((x1 - x0) * (y1 - y0))
     best_fill = 0.0
     closed = False
+    significant_components = 0
     for contour in contours:
         bx, by, bw, bh = cv2.boundingRect(contour)
         area = float(bw * bh)
         if area < crop_area * 0.18:
             continue
+        significant_components += 1
         approx = cv2.approxPolyDP(contour, 0.04 * cv2.arcLength(contour, True), True)
         rect_aspect = bw / max(float(bh), 1.0)
         fill = cv2.contourArea(contour) / max(area, 1.0)
         if 3 <= len(approx) <= 6 and 0.45 <= rect_aspect <= 2.2:
             closed = True
             best_fill = max(best_fill, fill)
-    return {"checked": True, "closed": closed, "fill_ratio": round(best_fill, 4)}
+    # Connected-component count (Workstream C): a real box is ~1 closed
+    # component; vertical-stroke OCR ("11"/"II") yields several thin ones.
+    return {
+        "checked": True,
+        "closed": closed,
+        "fill_ratio": round(best_fill, 4),
+        "component_count": significant_components,
+    }
 
 
 def _score_checkbox(
@@ -209,11 +227,15 @@ def validate_checkboxes(
     text_boxes: list[dict[str, Any]] | None = None,
     image_sizes: dict[int, dict[str, int]] | None = None,
     reject_threshold: float | None = None,
+    observe: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Score checkbox mappings; drop the likely-OCR-text ones.
 
     Returns ``(kept_mappings, diagnostics)``. Non-checkbox mappings pass through
-    untouched and in order.
+    untouched and in order. In ``observe`` mode every checkbox is scored and the
+    would-reject decisions are recorded, but **no mapping is dropped** — the
+    returned list is the input unchanged. Use observe mode to measure rejection
+    precision before enabling destructive filtering.
     """
     text_boxes = text_boxes or []
     page_images = page_images or {}
@@ -248,6 +270,7 @@ def validate_checkboxes(
             continue
         page = int(mapping.get("page") or 1)
         evaluation = _score_checkbox(box, page, text_boxes, _image_for(page), image_sizes.get(page))
+        below_threshold = evaluation["score"] < threshold
         record = {
             "field_id": mapping.get("field_id"),
             "label": mapping.get("label"),
@@ -256,22 +279,28 @@ def validate_checkboxes(
             "aspect": evaluation["aspect"],
             "ocr_text": evaluation["ocr_text"],
             "closed_contour": evaluation["contour"]["closed"],
+            "component_count": evaluation["contour"].get("component_count"),
             "reasons": evaluation["reasons"],
-            "decision": "kept" if evaluation["score"] >= threshold else "rejected",
+            # In observe mode nothing is dropped; record the hypothetical action.
+            "decision": ("would_reject" if observe else "rejected") if below_threshold else "kept",
         }
         evaluations.append(record)
-        if evaluation["score"] >= threshold:
-            kept.append(mapping)
-        else:
+        if below_threshold:
             rejected.append(record)
+            if not observe:
+                continue  # drop only when enforcing
+        kept.append(mapping)
 
     diagnostics = {
         "enabled": True,
+        "mode": "observe" if observe else "enforce",
         "feature_flag": "FORM_PARSER_CHECKBOX_VALIDATION_ENABLED",
+        "observe_flag": "FORM_PARSER_CHECKBOX_VALIDATION_OBSERVE",
         "reject_threshold": threshold,
         "checkbox_count": len(evaluations),
         "rejected_count": len(rejected),
-        "kept_count": len(evaluations) - len(rejected),
+        "kept_count": len(evaluations) - (0 if observe else len(rejected)),
+        "would_reject_count": len(rejected) if observe else 0,
         "rejected": rejected,
         "evaluations": evaluations,
     }

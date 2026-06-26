@@ -102,6 +102,76 @@ def _base_score(mapping: dict[str, Any]) -> float:
     return 0.55
 
 
+_LEVELS = ("HIGH", "MEDIUM", "LOW")
+
+
+def _confidence_level(mapping: dict[str, Any]) -> str:
+    """Prefer the confidence pipeline's level; else bucket the base score."""
+    level = str(mapping.get("confidence_level") or "").upper()
+    if level in _LEVELS:
+        return level
+    score = _base_score(mapping)
+    return "HIGH" if score >= 0.82 else "MEDIUM" if score >= 0.55 else "LOW"
+
+
+def _penalty_saturation(
+    mappings: list[dict[str, Any]],
+    samples: list[tuple[str, int, float]],
+    penalized: int,
+) -> dict[str, Any]:
+    """Aggregate the per-mapping penalties into a saturation view (Task 1).
+
+    Pure read-only aggregation of values already computed; no behaviour change.
+    """
+    total = len(samples)
+    # Penalty histogram in fixed buckets.
+    buckets = {"0": 0, "0-0.1": 0, "0.1-0.2": 0, "0.2-0.3": 0, "0.3+": 0}
+    for _t, _p, pen in samples:
+        if pen <= 0:
+            buckets["0"] += 1
+        elif pen < 0.1:
+            buckets["0-0.1"] += 1
+        elif pen < 0.2:
+            buckets["0.1-0.2"] += 1
+        elif pen < 0.3:
+            buckets["0.2-0.3"] += 1
+        else:
+            buckets["0.3+"] += 1
+
+    # Penalty by field_type and by page: count, penalized, mean penalty.
+    def _agg(key_index: int) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, float]] = {}
+        for sample in samples:
+            key = str(sample[key_index])
+            slot = out.setdefault(key, {"count": 0, "penalized": 0, "penalty_sum": 0.0})
+            slot["count"] += 1
+            if sample[2] > 0:
+                slot["penalized"] += 1
+                slot["penalty_sum"] += sample[2]
+        return {
+            k: {
+                "count": int(v["count"]),
+                "penalized": int(v["penalized"]),
+                "mean_penalty": round(v["penalty_sum"] / v["penalized"], 4) if v["penalized"] else 0.0,
+            }
+            for k, v in sorted(out.items())
+        }
+
+    distribution: dict[str, int] = {lvl: 0 for lvl in _LEVELS}
+    for m in mappings:
+        if isinstance(m, dict):
+            distribution[_confidence_level(m)] += 1
+
+    return {
+        "percent_penalized": round(100.0 * penalized / total, 2) if total else 0.0,
+        "penalty_histogram": buckets,
+        "confidence_distribution": distribution,
+        "penalties_by_type": _agg(0),
+        "penalties_by_page": {str(k): v for k, v in _agg(1).items()},
+        "saturated": (penalized / total) >= 0.9 if total else False,
+    }
+
+
 def _ambiguity_signal(mapping: dict[str, Any], gap_threshold: float) -> bool:
     anchoring = mapping.get("anchoring") if isinstance(mapping.get("anchoring"), dict) else {}
     candidate_count = anchoring.get("candidate_count")
@@ -171,6 +241,7 @@ def apply_confidence_calibration(
 
     penalized = 0
     total_penalty = 0.0
+    samples: list[tuple[str, int, float]] = []  # (field_type, page, penalty) for saturation
     for i, m in indexed:
         reasons: list[str] = []
         penalty = 0.0
@@ -187,6 +258,7 @@ def apply_confidence_calibration(
         base = _base_score(m)
         m["calibration"] = {"penalty": round(penalty, 4), "reasons": reasons}
         m["calibrated_confidence_score"] = round(_clamp01(base - penalty), 4)
+        samples.append((str(m.get("field_type") or "unknown"), int(m.get("page") or 1), penalty))
         if penalty > 0:
             penalized += 1
             total_penalty += penalty
@@ -207,5 +279,6 @@ def apply_confidence_calibration(
         "ambiguous_mappings": len(ambiguous_ids),
         "penalized_mappings": penalized,
         "mean_penalty": round(total_penalty / penalized, 4) if penalized else 0.0,
+        "penalty_saturation": _penalty_saturation(mappings, samples, penalized),
     }
     return {"mappings": mappings, "diagnostics": diagnostics}

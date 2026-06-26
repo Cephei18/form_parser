@@ -59,8 +59,21 @@ output/
 uploads/
 tmp/
 temp/
-# Evaluation harness run outputs (generated; corpus + ground truth ARE tracked)
+# Evaluation harness run outputs (generated)
 eval_runs/
+# Offline replay outputs (dashboard + visualizations, regenerated on demand)
+replay_out/
+benchmarks/corpus/*/replay/
+# Benchmark corpus: commit ONLY the annotation scaffold (ground_truth.json,
+# notes.md) + manifest/README/template/synthetic example. NEVER push real form
+# data (PII risk) or regenerable pipeline output — all reproducible from a
+# cached Textract response that is itself kept out of the repo.
+benchmarks/corpus/*/input.*
+benchmarks/corpus/*/artifacts/
+benchmarks/corpus/*/textract_raw_response.json
+benchmarks/corpus/*/mappings.json
+benchmarks/corpus/*/benchmark_summary.json
+benchmarks/corpus/*/dashboard.html
 input/*.pdf
 input/*.png
 input/*.jpg
@@ -86,6 +99,15 @@ secrets.json
 .aws/
 .env.local
 *.secret
+# Extra secret-bearing patterns (env files in any name, SSH keys, IaC vars, netrc)
+*.env
+.netrc
+id_rsa
+id_rsa.*
+*.ppk
+*.tfvars
+*.keystore
+*.jks
 
 # Serverless / Lambda deployment local outputs
 # Keep ignore patterns on their own lines.

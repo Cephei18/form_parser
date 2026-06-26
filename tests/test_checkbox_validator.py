@@ -69,3 +69,24 @@ def test_threshold_override_rejects_borderline():
     kept, diag = validate_checkboxes([cb], text_boxes=[], reject_threshold=0.99)
     assert kept == []
     assert diag["reject_threshold"] == 0.99
+
+
+def test_observe_mode_drops_nothing():
+    # A box that WOULD be rejected (impossible threshold) is kept in observe mode.
+    cb = _checkbox(1, {"x": 0.1, "y": 0.1, "width": 0.02, "height": 0.02})
+    kept, diag = validate_checkboxes([cb], text_boxes=[], reject_threshold=0.99, observe=True)
+    assert kept == [cb]                      # nothing dropped
+    assert diag["mode"] == "observe"
+    assert diag["would_reject_count"] == 1
+    assert diag["kept_count"] == 1
+    assert diag["evaluations"][0]["decision"] == "would_reject"
+
+
+def test_component_count_present_with_image(tmp_path):
+    img = np.full((400, 400, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (40, 40), (90, 90), (0, 0, 0), 2)
+    path = tmp_path / "page_1.png"
+    cv2.imwrite(str(path), img)
+    cb = _checkbox(1, {"x": 0.10, "y": 0.10, "width": 0.125, "height": 0.125})
+    _, diag = validate_checkboxes([cb], page_images={1: path}, text_boxes=[], image_sizes={1: {"width": 400, "height": 400}})
+    assert diag["evaluations"][0]["component_count"] is not None

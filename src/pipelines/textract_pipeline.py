@@ -12,6 +12,7 @@ import cv2
 from src.artifact_store import get_artifact_store
 from src.confidence_calibration import apply_confidence_calibration
 from src.confidence_pipeline import apply_confidence_pipeline, draw_confidence_overlay
+from src.diagnostics_summary import build_form_diagnostics_summary
 from src.document_routing import (
     ROUTE_ASYNC,
     ROUTE_JSON_REPLAY,
@@ -536,6 +537,9 @@ def run_textract_pipeline(
         "validation": validation_report,
         "validation_report_path": str(validation_report_path),
     }
+    # Task 2: curated "why did this form fail" projection for benchmark reports +
+    # the HTML dashboard. Additive, read-only over the diagnostics just built.
+    diagnostics["form_diagnostics_summary"] = build_form_diagnostics_summary(diagnostics, mappings)
     save_json(destination_dir / "mapping_diagnostics.json", diagnostics)
     save_json(destination_dir / "benchmark_summary.json", diagnostics)
 
