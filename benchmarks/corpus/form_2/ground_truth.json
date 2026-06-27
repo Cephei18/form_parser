@@ -20,7 +20,7 @@
     "repeated_sections",
     "checkbox_matrix_as_widgets"
   ],
-  "annotation_coverage": "page_types complete (8 pages). Widgets: representative high-confidence subset of discrete fields (mode-of-holding, market-maker/large-investor, tax-status, payable/receivable, bank account-type option groups, signatures, principal text/comb fields). NOT exhaustive: the Section 7 ETF scheme grid (~80 Cash/Portfolio cells), the Section 6 FATCA matrix, and Section 12/page-4 beneficiary lists are intentionally not cell-annotated yet. P/R therefore understate; the headline metric for the page-gating fix is non_fillable_false_positives.",
+  "annotation_coverage": "page_types complete. Widgets: discrete fields (manual) + ETF scheme grid 16x5 checkbox matrix (Section 7, structurally derived from the regular detected glyph grid, labelled scheme x mode) + comb character-box fields (PAN/KYC/DP ID/Folio/PIN/etc., from the comb-run detector). FATCA matrix (Sec 6) + page-4 beneficiary lists still not exhaustively annotated.",
   "widgets": [
     {
       "widget_id": "p1_mode_single",
@@ -629,6 +629,1590 @@
         "Acknowledgement Slip"
       ],
       "cell_count": 1
+    },
+    {
+      "widget_id": "etf_r1_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Bank ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.0664,
+        "width": 0.0114,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r1_x394",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Bank ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3948,
+        "y": 0.0664,
+        "width": 0.0122,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r1_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Bank ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.0664,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r1_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Bank ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.0664,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r1_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Bank ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.0663,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r2_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.0805,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r2_x394",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3948,
+        "y": 0.0806,
+        "width": 0.0122,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r2_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.0804,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r2_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.0806,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r2_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.0806,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r3_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE Sensex ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.0947,
+        "width": 0.0115,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r3_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE Sensex ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.0947,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r3_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE Sensex ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.0947,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r3_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE Sensex ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.0947,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r3_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE Sensex ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.0947,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r4_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 100 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.1088,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r4_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 100 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1088,
+        "width": 0.0122,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r4_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 100 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.1088,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r4_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 100 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.109,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r4_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 100 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.1088,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r5_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Next 50 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.1229,
+        "width": 0.0115,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r5_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Next 50 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1229,
+        "width": 0.0122,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r5_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Next 50 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.1228,
+        "width": 0.0117,
+        "height": 0.0082
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r5_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Next 50 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.1231,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r5_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Next 50 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.123,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r6_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Quality 30 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.137,
+        "width": 0.0115,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r6_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Quality 30 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1368,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r6_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Quality 30 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.1369,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r6_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Quality 30 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.137,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r6_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Quality 30 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.137,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r7_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY200 Momentum 30 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.1512,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r7_x394",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY200 Momentum 30 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3948,
+        "y": 0.1512,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r7_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY200 Momentum 30 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.1512,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r7_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY200 Momentum 30 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.1514,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r7_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY200 Momentum 30 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.1512,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r8_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Low Volatility 30 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0962,
+        "y": 0.1655,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r8_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Low Volatility 30 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1654,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r8_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Low Volatility 30 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.1655,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r8_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Low Volatility 30 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.1655,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r8_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY100 Low Volatility 30 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.1656,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r9_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Growth Sectors 15 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.1796,
+        "width": 0.0115,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r9_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Growth Sectors 15 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1795,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r9_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Growth Sectors 15 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.1796,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r9_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Growth Sectors 15 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.1797,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r9_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Growth Sectors 15 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.1797,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r10_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 Value 20 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0962,
+        "y": 0.1938,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r10_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 Value 20 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.1938,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r10_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 Value 20 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.1938,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r10_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 Value 20 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.1939,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r10_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY 50 Value 20 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6812,
+        "y": 0.1939,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r11_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Private Bank ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.208,
+        "width": 0.0115,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r11_x394",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Private Bank ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3948,
+        "y": 0.2079,
+        "width": 0.0122,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r11_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Private Bank ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.2079,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r11_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Private Bank ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.2081,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r11_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Private Bank ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.2081,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r12_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY IT ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.222,
+        "width": 0.0115,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r12_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY IT ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3953,
+        "y": 0.222,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r12_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY IT ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.222,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r12_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY IT ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.222,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r12_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY IT ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.222,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r13_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE 500 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.2363,
+        "width": 0.0114,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r13_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE 500 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.2361,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r13_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE 500 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.2361,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r13_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE 500 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.2363,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r13_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "S&P BSE 500 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.2363,
+        "width": 0.0117,
+        "height": 0.0081
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r14_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Midcap 150 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.2504,
+        "width": 0.0115,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r14_x394",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Midcap 150 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.3948,
+        "y": 0.2504,
+        "width": 0.0122,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r14_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Midcap 150 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.4807,
+        "y": 0.2504,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r14_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Midcap 150 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.2504,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r14_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Midcap 150 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.2506,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r15_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Smallcap 250 ETF - Select scheme",
+      "bbox": {
+        "x": 0.0964,
+        "y": 0.2643,
+        "width": 0.0115,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r15_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Smallcap 250 ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.2643,
+        "width": 0.0122,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r15_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Smallcap 250 ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.2645,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r15_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Smallcap 250 ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.2645,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r15_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "NIFTY Smallcap 250 ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6817,
+        "y": 0.2645,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r16_x96",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Gold/Silver ETF - Select scheme",
+      "bbox": {
+        "x": 0.0963,
+        "y": 0.2787,
+        "width": 0.0112,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r16_x395",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Gold/Silver ETF - Subscription: Cash",
+      "bbox": {
+        "x": 0.395,
+        "y": 0.2784,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r16_x480",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Gold/Silver ETF - Subscription: Portfolio",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.2785,
+        "width": 0.0117,
+        "height": 0.0083
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r16_x595",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Gold/Silver ETF - Redemption: Cash",
+      "bbox": {
+        "x": 0.5957,
+        "y": 0.2789,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "etf_r16_x681",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Gold/Silver ETF - Redemption: Portfolio",
+      "bbox": {
+        "x": 0.6812,
+        "y": 0.2787,
+        "width": 0.0117,
+        "height": 0.0078
+      },
+      "section_path": [
+        "Transaction Details",
+        "ETF Scheme Grid"
+      ],
+      "cell_count": 1,
+      "repeat_group_id": "etf_scheme_grid"
+    },
+    {
+      "widget_id": "comb_p1_x728_y657",
+      "page": 1,
+      "type": "comb",
+      "label": "STD Code",
+      "bbox": {
+        "x": 0.7285,
+        "y": 0.6571,
+        "width": 0.1457,
+        "height": 0.0111
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 7
+    },
+    {
+      "widget_id": "comb_p1_x825_y619",
+      "page": 1,
+      "type": "comb",
+      "label": "PIN CODE",
+      "bbox": {
+        "x": 0.8253,
+        "y": 0.6199,
+        "width": 0.1445,
+        "height": 0.0115
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 7
+    },
+    {
+      "widget_id": "comb_p1_x767_y392",
+      "page": 1,
+      "type": "comb",
+      "label": "Beneficiary Account No.",
+      "bbox": {
+        "x": 0.7672,
+        "y": 0.3929,
+        "width": 0.1711,
+        "height": 0.0184
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 6
+    },
+    {
+      "widget_id": "comb_p1_x594_y418",
+      "page": 1,
+      "type": "comb",
+      "label": "Account No.",
+      "bbox": {
+        "x": 0.5943,
+        "y": 0.419,
+        "width": 0.344,
+        "height": 0.0184
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 12
+    },
+    {
+      "widget_id": "comb_p1_x503_y394",
+      "page": 1,
+      "type": "comb",
+      "label": "DP ID",
+      "bbox": {
+        "x": 0.5036,
+        "y": 0.3942,
+        "width": 0.1965,
+        "height": 0.018
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 7
+    },
+    {
+      "widget_id": "comb_p1_x183_y315",
+      "page": 1,
+      "type": "comb",
+      "label": "Folio No.",
+      "bbox": {
+        "x": 0.1832,
+        "y": 0.3159,
+        "width": 0.3525,
+        "height": 0.015
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 13
+    },
+    {
+      "widget_id": "comb_p2_x192_y189",
+      "page": 2,
+      "type": "comb",
+      "label": "Telephone : Off.",
+      "bbox": {
+        "x": 0.1923,
+        "y": 0.1898,
+        "width": 0.1699,
+        "height": 0.0124
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 8
+    },
+    {
+      "widget_id": "comb_p2_x215_y427",
+      "page": 2,
+      "type": "comb",
+      "label": "PEKRN#",
+      "bbox": {
+        "x": 0.2152,
+        "y": 0.4275,
+        "width": 0.1693,
+        "height": 0.0103
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 8
+    },
+    {
+      "widget_id": "comb_p2_x409_y165",
+      "page": 2,
+      "type": "comb",
+      "label": "Country Code",
+      "bbox": {
+        "x": 0.4093,
+        "y": 0.1659,
+        "width": 0.1445,
+        "height": 0.0107
+      },
+      "section_path": [
+        "(comb field)"
+      ],
+      "cell_count": 7
     }
   ]
 }

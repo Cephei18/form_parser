@@ -24,6 +24,7 @@ from src.checkbox_validator import (
 )
 from src.comb_detector import apply_comb_detection, enrich_mapping_with_comb
 from src.comb_field_detector import comb_run_enabled, detect_comb_runs
+from src.matrix_labeler import apply_matrix_labeling, matrix_labeling_enabled
 from src.comb_diagnostics import analyze_comb_groups, comb_diagnostics_enabled
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
 from src.dotted_leader_diagnostics import analyze_dotted_leaders, dotted_leader_diagnostics_enabled
@@ -2560,36 +2561,55 @@ def build_anchored_mappings(
                 runs = []
             if runs:
                 runs_by_page[int(pg)] = runs
-        if runs_by_page:
-            for idx, mapping in enumerate(mappings):
-                if mapping.get("widget_type") or mapping.get("field_type") not in {"text", "multiline"}:
-                    continue
-                box = mapping.get("bbox")
-                if not isinstance(box, dict):
-                    continue
-                page = int(mapping.get("page") or 1)
-                acx = float(box["x"]) + float(box["width"]) / 2.0
-                acy = float(box["y"]) + float(box["height"]) / 2.0
-                for run in runs_by_page.get(page, []):
-                    run_cy = float(run["y"]) + float(run["height"]) / 2.0
+        # Run-centric matching: each comb run widens at most ONE field (the field
+        # whose answer centre is nearest the run centre), and each field is used
+        # once. This prevents two KEYs Textract emitted for the same comb (e.g.
+        # "Beneficiary Account No." + "Account No.") both widening to the same box.
+        used_field_idx: set[int] = set()
+        for page, runs in runs_by_page.items():
+            for run in runs:
+                run_cx = float(run["x"]) + float(run["width"]) / 2.0
+                run_cy = float(run["y"]) + float(run["height"]) / 2.0
+                best_idx, best_dist = None, 1e9
+                for idx, mapping in enumerate(mappings):
+                    if idx in used_field_idx:
+                        continue
+                    if mapping.get("widget_type") or mapping.get("field_type") not in {"text", "multiline"}:
+                        continue
+                    box = mapping.get("bbox")
+                    if not isinstance(box, dict) or int(mapping.get("page") or 1) != page:
+                        continue
+                    acx = float(box["x"]) + float(box["width"]) / 2.0
+                    acy = float(box["y"]) + float(box["height"]) / 2.0
                     inside_x = float(run["x"]) <= acx <= float(run["x"]) + float(run["width"])
                     same_row = abs(acy - run_cy) <= max(float(run["height"]) * 1.5, 0.02)
-                    under_sized = float(box["width"]) < float(run["width"]) * 0.6
-                    if inside_x and same_row and under_sized:
-                        candidate = {
-                            "bbox": {k: run[k] for k in ("x", "y", "width", "height")},
-                            "comb_cells": int(run["cell_count"]),
-                            "expected_length": int(run["cell_count"]),
-                            "confidence": 0.85,
-                            "reason": "comb_run_geometry",
-                            "reasons": ["empty_box_run", "interior_ink_filtered"],
-                            "source": "comb_run_detector",
-                        }
-                        enriched = enrich_mapping_with_comb(mapping, candidate)
-                        enriched["field_bboxes"] = [_box_to_pixel_box(enriched["bbox"], *_page_px(page))]
-                        mappings[idx] = enriched
-                        comb_run_count += 1
-                        break
+                    # A field sitting on a detected comb run IS that comb — convert
+                    # it (the run supplies the cell structure). Phase C dropped the
+                    # over-strict "under-sized" gate (it skipped fields whose value
+                    # block already spanned the boxes, e.g. PAN/KYC). Still skip a
+                    # field much wider than the run (a multiline merely crossing it)
+                    # so addresses etc. are never comb-ified.
+                    not_oversized = float(box["width"]) <= float(run["width"]) * 1.5
+                    if inside_x and same_row and not_oversized:
+                        dist = abs(acx - run_cx)
+                        if dist < best_dist:
+                            best_idx, best_dist = idx, dist
+                if best_idx is None:
+                    continue
+                candidate = {
+                    "bbox": {k: run[k] for k in ("x", "y", "width", "height")},
+                    "comb_cells": int(run["cell_count"]),
+                    "expected_length": int(run["cell_count"]),
+                    "confidence": 0.85,
+                    "reason": "comb_run_geometry",
+                    "reasons": ["empty_box_run", "interior_ink_filtered"],
+                    "source": "comb_run_detector",
+                }
+                enriched = enrich_mapping_with_comb(mappings[best_idx], candidate)
+                enriched["field_bboxes"] = [_box_to_pixel_box(enriched["bbox"], *_page_px(page))]
+                mappings[best_idx] = enriched
+                used_field_idx.add(best_idx)
+                comb_run_count += 1
         if comb_run_count:
             logger.info("[anchor] comb-run widened %d field(s)", comb_run_count)
 
@@ -2604,6 +2624,11 @@ def build_anchored_mappings(
         mappings,
         text_boxes=text_boxes,
     )
+
+    # --- Phase D: logical checkbox-matrix labelling ---------------------------
+    # Qualify matrix cell labels with their row (e.g. "Cash" -> "NIFTY Bank ETF
+    # - Cash"). Label-only, flag-gated OFF; never moves/adds/drops a widget.
+    mappings, matrix_label_diag = apply_matrix_labeling(mappings)
 
     # --- False-checkbox rejection (Phase L0.1) --------------------------------
     # Drop "checkboxes" that are really narrow OCR glyphs (11 / II / |). Two
@@ -2814,6 +2839,7 @@ def build_anchored_mappings(
         "enabled": address_region_enabled(),
         "synthesized_count": address_region_count,
     }
+    diagnostics["matrix_labeling"] = matrix_label_diag
     diagnostics["field_hygiene"] = {
         "enabled": field_hygiene_enabled(),
         "dropped_duplicate_region_count": len(hygiene_dropped_duplicates),
