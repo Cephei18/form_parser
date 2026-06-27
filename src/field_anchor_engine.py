@@ -36,6 +36,7 @@ from src.field_sanitizer import (
     is_page_furniture,
 )
 from src.radio_grouper import apply_radio_grouping
+from src.address_region import address_region_enabled, emit_address_regions
 from src.page_classifier import non_fillable_pages, page_gating_enabled
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
 from src.table_fill import (
@@ -94,6 +95,9 @@ MULTILINE_KEYWORDS = {
 }
 
 CHECKBOX_VALUE_TOKENS = {"[x]", "[ ]", "x", "yes", "no"}
+# A KEY label that begins with a checkbox glyph (Textract folded the box into the
+# key text), e.g. "[ ] Enclosed (Please tick): ...".
+_CHECKBOX_LABEL_PREFIX_RE = re.compile(r"^\[\s*[xX]?\s*\]")
 
 # --- Textract-pipeline-only tunables (safe to revert; OCR path never reads these) ---
 # Answer regions anchored on an already-printed feature must NOT get a second
@@ -721,6 +725,13 @@ def _classify_field(label: str, value: str, answer_box: dict[str, float] | None,
     if lower_value in CHECKBOX_VALUE_TOKENS and not _contains_any(lower_label, WRITE_IN_CUES):
         reasons.append("checkbox_value")
         return "checkbox", reasons
+    # A label that STARTS with a checkbox glyph ("[ ] Enclosed (Please tick) ...")
+    # is a checkbox option, not a text field — Textract folded the glyph into the
+    # KEY text and left the value empty. Without this it grabs a spurious wide
+    # answer region and paints a giant field across the section.
+    if _CHECKBOX_LABEL_PREFIX_RE.match(label.strip()) and not _contains_any(lower_label, WRITE_IN_CUES):
+        reasons.append("checkbox_label_prefix")
+        return "checkbox", reasons
 
     multiline = False
     if "\n" in value:
@@ -794,6 +805,15 @@ def _value_block_candidates(
         page = _block_page(value_block, page_by_id, label_page)
         if page != label_page:
             continue
+        # Reject grossly mis-linked value blocks: Textract sometimes links a KEY
+        # to a value on a completely different row (e.g. the page-3 "Total Cash
+        # Component" / "Portfolio Deposit" labels linked to a basket-size cell at
+        # the top of the page). A real value sits on the label's row (right of it)
+        # or just below it — never far above, nor a long way below.
+        if float(value_box["y"]) < float(label_box["y"]) - 0.10:
+            continue
+        if float(value_box["y"]) > _box_bottom(label_box) + 0.12:
+            continue
         overlap = _overlap_ratio(value_box, label_box)
         score = 0.9
         reasons = ["textract_key_value_relationship", "value_block_geometry"]
@@ -843,9 +863,16 @@ def _matching_label_cell(
     if section_band:
         scoped = [cell for cell in cells if _cell_in_section_band(cell, section_band)]
         cells = scoped or cells
+    label_center_y = _box_center(label_box)[1]
     best: tuple[float, dict[str, Any]] | None = None
     for cell in cells:
         if int(cell.get("page") or 1) != page:
+            continue
+        # The label cell CONTAINS the field's label, so its centre sits on the
+        # label's row (within ~half a cell height). Reject distant text matches —
+        # e.g. "Total Cash Component" / "Portfolio Deposit" text-matching a
+        # basket-size cell elsewhere on the page and stealing its right sibling.
+        if abs(_box_center(cell["bbox"])[1] - label_center_y) > 0.06:
             continue
         cell_text = cell.get("text") or ""
         cell_norm = _field_label_slug(cell_text)
@@ -1519,6 +1546,18 @@ def _select_answer_region(
         if value_candidates:
             glyph = min(value_candidates, key=lambda c: _box_area(c["bbox"]))
             return glyph, field_type, type_reasons, [glyph]
+        # Label-prefix checkbox ("[ ] Enclosed …") with no value block: place a
+        # glyph-sized box at the label's left edge (where the "[ ]" sits). The
+        # real SELECTION_ELEMENT, if any, dedups this away downstream; otherwise
+        # this is the checkbox. Prevents falling through to a wide answer region.
+        if _CHECKBOX_LABEL_PREFIX_RE.match(label.strip()):
+            side = max(metrics["line_height"] * 0.9, 0.01)
+            glyph_box = _normalize_box(
+                {"x": float(label_box["x"]), "y": float(label_box["y"]), "width": side, "height": side}
+            )
+            if glyph_box:
+                glyph = _candidate(bbox=glyph_box, anchor_type="checkbox_region", score=0.6, reasons=["checkbox_label_prefix"])
+                return glyph, field_type, type_reasons, [glyph]
 
     candidates: list[dict[str, Any]] = []
     candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline, section_band))
@@ -2445,6 +2484,45 @@ def build_anchored_mappings(
         if sig_mappings:
             logger.info("[anchor] signature-table emitted %d inline answer cell(s)", len(sig_mappings))
 
+    # --- Key-less address regions ---------------------------------------------
+    # An address heading ("MAILING ADDRESS OF FIRST / SOLE APPLICANT") with a
+    # blank writing band but no Textract KEY produces no field above. Synthesize
+    # a multiline region in that band, but only for qualified-address labels with
+    # no existing field and an empty band (keeps addresses Textract DID key, and
+    # every comb-free form, untouched). ON by default.
+    address_region_count = 0
+    if address_region_enabled():
+        address_mappings = emit_address_regions(
+            lines,
+            text_boxes=text_boxes,
+            mappings=mappings,
+            metrics_by_page=metrics_by_page,
+            section_index=section_index,
+            page_px=_page_px,
+            non_fillable_pages=non_fillable_page_set,
+        )
+        for am in address_mappings:
+            mappings.append(am)
+            anchor_records.append(
+                {
+                    "field_id": am["field_id"],
+                    "label": am["label"],
+                    "field_type": am["field_type"],
+                    "page": am["page"],
+                    "section_id": am["section"].get("section_id"),
+                    "section_title": am["section"].get("title"),
+                    "label_bbox": am["label_bbox"],
+                    "answer_bbox": am["bbox"],
+                    "anchor_type": "address_region",
+                    "confidence": am["confidence"],
+                    "label_overlap_ratio": 0.0,
+                    "candidate_count": 1,
+                }
+            )
+        address_region_count = len(address_mappings)
+        if address_region_count:
+            logger.info("[anchor] synthesized %d key-less address region(s)", address_region_count)
+
     # Field hygiene (rule 3): drop fields whose answer region duplicates a
     # stronger field's region (e.g. a printed sub-caption resolving onto the same
     # underline as its parent label). Reconcile anchor_records so diagnostics and
@@ -2731,6 +2809,10 @@ def build_anchored_mappings(
     diagnostics["comb_run"] = {
         "enabled": comb_run_enabled(),
         "widened_field_count": comb_run_count,
+    }
+    diagnostics["address_region"] = {
+        "enabled": address_region_enabled(),
+        "synthesized_count": address_region_count,
     }
     diagnostics["field_hygiene"] = {
         "enabled": field_hygiene_enabled(),

@@ -29,8 +29,17 @@ False checkboxes amid text/numbers — FIXED:
 - Bug: 124 checkboxes rendered as WIDE boxes (w 0.05-0.30, anchor_type table_cell) across row text/numbers (page-4 collection table, page-1 belongs-to row). Root cause: a KEY with a "[ ]" value classified as checkbox then anchored to a wide table_cell/value_block instead of the small glyph.
 - Fix (field_anchor_engine._select_answer_region): a checkbox-typed field now anchors to its VALUE-block glyph (the small "[ ]", ~0.012 wide), not wide visual candidates. Result: 0 wide checkboxes; page-4 row checkboxes are now glyphs at the row start (x0.058), page-1 belongs-to options at their glyphs. form_3/4/5 checkboxes unchanged (they come from SELECTION_ELEMENTs, not the token path).
 
-Still NOT fixed (deferred):
-- Mailing Address blank lines: Textract emits NO KEY for the address writing area (only CITY/STATE/PIN below have fields). Synthesizing a field from a label without a Textract KEY is a new capability (risk of spurious fields).
+Page-3 mis-anchor / spanning bugs — FIXED:
+- "[ ] Enclosed (Please tick) ..." rendered a giant multiline spanning the Mandatory area (8->9). Root: label starts with a "[ ]" glyph (Textract folded the box into the KEY, left value empty) -> not classified checkbox -> grabbed a tall dotted region. Fix: _CHECKBOX_LABEL_PREFIX_RE -> a label starting with "[ ]"/"[X]" is a checkbox, anchored to a glyph at the label's left (dedups with the real SELECTION_ELEMENT).
+- "Total Cash Component", "Cash Component per Creation Unit", "Portfolio Deposit of Gold" (y~0.37-0.65) were dropped: they mis-matched a basket-size TABLE cell at the top of the page (y~0.06-0.26) and collided. Root: _matching_label_cell allowed cross-page text matches. Fix: a label cell must be vertically near the label (|cy-label_cy|<=0.06) — a label cell contains its label. Plus a value-block far-mis-link gate (reject value blocks >0.10 above / >0.12 below the label). All three now map near their labels.
+- "Others (please specify)" write-ins map (text/underline) via the earlier WRITE_IN_CUES fix.
+- Page-2 acknowledgement cheque line (Cheque No / Date / Amount / or) maps fine.
+
+Mailing Address (key-less) — FIXED:
+- src/address_region.py (FORM_PARSER_ADDRESS_REGION_ENABLED, default ON) synthesizes a multiline region in the blank band under a qualified-address heading ("mailing/permanent/correspondence/residential/present/overseas/local address") when (a) NO existing field's box overlaps the heading (so Textract-keyed addresses like form_5 "Present Address" are skipped), and (b) the band down to the next text row is empty. form_2 pages 1+2 mailing addresses now mapped; form_3/4/5 synthesize 0 (no spurious). "Address Type:" (checkbox prompt) is NOT matched (qualifier must precede "address").
+
+Still NOT fixed (deferred, hard):
+- Page-1 Beneficiary Account No. (NSDL row): double failure — Textract mis-links the "Beneficiary" KEY onto the DP ID comb (same row, wrong x), AND its real boxes are BROKEN so the comb detector can't find a clean run. Needs broken-comb tolerance + re-anchoring.
 - Section 7 ETF grid / Section 6 FATCA matrix: dense matrices, not exhaustively annotated in ground truth.
 
 Ground truth: page_types COMPLETE (8 pages). Widgets = representative high-confidence subset (37) of discrete fields (mode-of-holding, market-maker/large-investor, tax-status, payable/receivable, bank account-type groups, signatures, principal text/comb fields). The dense matrices are intentionally not cell-annotated yet, so P/R understate; the headline metric for the page-gating fix is non_fillable_false_positives (now 0).
