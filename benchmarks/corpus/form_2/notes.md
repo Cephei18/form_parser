@@ -19,8 +19,12 @@ Page-1 bugs (user-flagged) — fixed:
 - EUIN "Sign Here" signature grid: a 2x3 table (R1 "Sign Here" boxes, R2 applicant labels). Previously the labels became text fields and the wide signing boxes were lost/deduped. FIX: src/table_fill.emit_signature_grid_cells detects tables containing "Sign Here"/"signature"/"sign" cells, emits one signature widget per box (the full wide cell) labelled from the adjacent label row, and suppresses the table's KEY fields. emit_signature_table_cells now skips sign-here tables (avoids double emission). "Sign. Guardian" (form_5 dotted-leader labels) is NOT matched.
 - "Received from Mr. / Ms. / M/s." (acknowledgement slip, y~0.952) was wrongly dropped as margin_furniture. FIX: margin-furniture suppression now requires a SHORT label (<=3 words); a multi-word bottom-of-page field is preserved (form_5's terse "downlost 5"/"SampleWords" still suppressed).
 
-Still NOT fixed (need dedicated comb/CV work — higher risk, deferred):
-- Comb character-box fields (Folio No, DP ID, PIN, Beneficiary A/c, etc.): Textract returns a degenerate first-box value (w~0.007-0.009, just above the 0.006 degenerate cutoff) and the CV rectangle detector finds only 3 boxes on page 1 (the character cells are below its min-width; raw contours are noisy, ~91 mixed text/box strokes). Rendering the full comb run needs real comb-run detection (group equal-spaced small boxes) — a substantial, regression-risky feature.
+Comb character-box fields — PARTIALLY FIXED:
+- src/comb_field_detector.py (FORM_PARSER_COMB_RUN_ENABLED, default ON) detects comb runs from the raster using an interior-ink filter (a comb cell is an EMPTY box; a glyph is ink-filled) + size/aspect + regular-spacing grouping. The engine then WIDENS an existing under-sized text field whose answer falls inside a run into a proper comb widget (widget_type=comb, comb_cells=N). Verified: 0 runs / 0 widenings on form_3/4/5 (no comb fields), so zero regression.
+- FIXED on page 1: DP ID (-> 7-cell comb, x0.504 w0.196) and Beneficiary Account No (-> 12-cell comb). The interior-ink filter is the safe discriminator (naive size/spacing detectors caught text: form_4 had 85 false runs, form_5 had 25).
+- STILL not caught: Folio No / PAN / KYC / PIN — these use a *continuous* comb style (cells share walls, so RETR_EXTERNAL returns one contour, not separate cells). Catching them needs internal-divider detection (vertical ticks), which a prototype showed is prone to false positives on table borders — deferred.
+
+Still NOT fixed (deferred):
 - Mailing Address blank lines: Textract emits NO KEY for the address writing area (only CITY/STATE/PIN below have fields). Synthesizing a field from a label without a Textract KEY is a new capability (risk of spurious fields).
 - Section 7 ETF grid / Section 6 FATCA matrix: dense matrices, not exhaustively annotated in ground truth.
 

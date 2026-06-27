@@ -22,7 +22,8 @@ from src.checkbox_validator import (
     checkbox_validation_observe_enabled,
     validate_checkboxes,
 )
-from src.comb_detector import apply_comb_detection
+from src.comb_detector import apply_comb_detection, enrich_mapping_with_comb
+from src.comb_field_detector import comb_run_enabled, detect_comb_runs
 from src.comb_diagnostics import analyze_comb_groups, comb_diagnostics_enabled
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
 from src.dotted_leader_diagnostics import analyze_dotted_leaders, dotted_leader_diagnostics_enabled
@@ -2448,6 +2449,60 @@ def build_anchored_mappings(
                     entry["outcome"] = "dropped_duplicate_region"
             logger.info("[anchor] dropped %d duplicate-region field(s)", len(hygiene_dropped_duplicates))
 
+    # --- Comb-run widening ----------------------------------------------------
+    # Fixed-length fields drawn as a row of character boxes (PAN/KYC/DP ID/
+    # Beneficiary/PIN/...) get only their first box from Textract. Detect the
+    # full empty-box run on the raster and widen the under-sized field over it as
+    # a proper comb widget. Only EXISTING under-sized text fields whose answer
+    # falls inside a run are enriched (never creates new widgets), and the
+    # interior-ink detector yields nothing on comb-free pages. ON by default;
+    # FORM_PARSER_COMB_RUN_ENABLED=false reverts.
+    comb_run_count = 0
+    if comb_run_enabled():
+        runs_by_page: dict[int, list[dict[str, Any]]] = {}
+        for pg, img in page_images_norm.items():
+            if pg in non_fillable_page_set:
+                continue
+            try:
+                runs = detect_comb_runs(img, page=int(pg))
+            except Exception as exc:  # noqa: BLE001 — detection must never break the pipeline
+                logger.warning("[anchor] comb-run detection failed page=%s: %s", pg, exc)
+                runs = []
+            if runs:
+                runs_by_page[int(pg)] = runs
+        if runs_by_page:
+            for idx, mapping in enumerate(mappings):
+                if mapping.get("widget_type") or mapping.get("field_type") not in {"text", "multiline"}:
+                    continue
+                box = mapping.get("bbox")
+                if not isinstance(box, dict):
+                    continue
+                page = int(mapping.get("page") or 1)
+                acx = float(box["x"]) + float(box["width"]) / 2.0
+                acy = float(box["y"]) + float(box["height"]) / 2.0
+                for run in runs_by_page.get(page, []):
+                    run_cy = float(run["y"]) + float(run["height"]) / 2.0
+                    inside_x = float(run["x"]) <= acx <= float(run["x"]) + float(run["width"])
+                    same_row = abs(acy - run_cy) <= max(float(run["height"]) * 1.5, 0.02)
+                    under_sized = float(box["width"]) < float(run["width"]) * 0.6
+                    if inside_x and same_row and under_sized:
+                        candidate = {
+                            "bbox": {k: run[k] for k in ("x", "y", "width", "height")},
+                            "comb_cells": int(run["cell_count"]),
+                            "expected_length": int(run["cell_count"]),
+                            "confidence": 0.85,
+                            "reason": "comb_run_geometry",
+                            "reasons": ["empty_box_run", "interior_ink_filtered"],
+                            "source": "comb_run_detector",
+                        }
+                        enriched = enrich_mapping_with_comb(mapping, candidate)
+                        enriched["field_bboxes"] = [_box_to_pixel_box(enriched["bbox"], *_page_px(page))]
+                        mappings[idx] = enriched
+                        comb_run_count += 1
+                        break
+        if comb_run_count:
+            logger.info("[anchor] comb-run widened %d field(s)", comb_run_count)
+
     mappings, comb_diagnostics = apply_comb_detection(
         mappings,
         visual_features,
@@ -2660,6 +2715,10 @@ def build_anchored_mappings(
     diagnostics["page_gating"] = {
         "enabled": page_gating_enabled(),
         "non_fillable_pages": {str(p): r for p, r in sorted(non_fillable_page_map.items())},
+    }
+    diagnostics["comb_run"] = {
+        "enabled": comb_run_enabled(),
+        "widened_field_count": comb_run_count,
     }
     diagnostics["field_hygiene"] = {
         "enabled": field_hygiene_enabled(),
