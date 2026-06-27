@@ -1508,6 +1508,18 @@ def _select_answer_region(
         if signature is not None:
             return signature, field_type, type_reasons, [signature]
 
+    # A token checkbox ("[ ]"/"[X]" value) must render as the small glyph at the
+    # VALUE-block location — not a wide visual feature. Without this, a "[ ]" that
+    # Textract attached to a table row anchors to the whole row cell and paints a
+    # giant checkbox across the row's text/numbers. The value block IS the glyph
+    # (~0.012 wide), so anchor there; downstream token-checkbox dedup then works.
+    if field_type == "checkbox":
+        value_candidates = _value_block_candidates(field_item, blocks_by_id, page_by_id, label_box, page)
+        value_candidates = [c for c in value_candidates if not is_degenerate_box(c.get("bbox"))]
+        if value_candidates:
+            glyph = min(value_candidates, key=lambda c: _box_area(c["bbox"]))
+            return glyph, field_type, type_reasons, [glyph]
+
     candidates: list[dict[str, Any]] = []
     candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline, section_band))
     # A write-in label whose Textract value is a checkbox token ("[ ]") has its

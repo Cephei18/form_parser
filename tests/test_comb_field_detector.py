@@ -82,3 +82,32 @@ def test_blank_page_yields_nothing(tmp_path):
 
 def test_missing_image_returns_empty(tmp_path):
     assert detect_comb_runs(tmp_path / "nope.png", page=1) == []
+
+
+def test_detects_continuous_comb_light_grey_dividers(tmp_path):
+    # A continuous comb: light-grey top/bottom borders + regular vertical
+    # dividers (cells share walls), interior empty. Must be detected.
+    img = _canvas()
+    grey = (190, 190, 190)
+    x0, y0, y1, n, step = 300, 300, 320, 12, 30
+    cv2.line(img, (x0, y0), (x0 + n * step, y0), grey, 1)
+    cv2.line(img, (x0, y1), (x0 + n * step, y1), grey, 1)
+    for k in range(n + 1):
+        x = x0 + k * step
+        cv2.line(img, (x, y0), (x, y1), grey, 1)
+    p = tmp_path / "continuous.png"
+    cv2.imwrite(str(p), img)
+    runs = detect_comb_runs(p, page=1)
+    assert len(runs) == 1
+    assert runs[0]["cell_count"] >= 7
+    assert runs[0]["width"] > 0.18
+
+
+def test_dark_text_row_not_a_divider_comb(tmp_path):
+    # Irregular dark glyphs (digits) must not be read as a comb.
+    img = _canvas()
+    for k, ch in enumerate("5750000633239"):
+        cv2.putText(img, ch, (300 + k * 26, 320), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+    p = tmp_path / "digits.png"
+    cv2.imwrite(str(p), img)
+    assert detect_comb_runs(p, page=1) == []
