@@ -27,8 +27,16 @@ from src.comb_diagnostics import analyze_comb_groups, comb_diagnostics_enabled
 from src.confidence_pipeline import confidence_pipeline_enabled, review_queue_enabled
 from src.dotted_leader_diagnostics import analyze_dotted_leaders, dotted_leader_diagnostics_enabled
 from src.dotted_underline_detector import detect_dotted_underlines, split_inline_answer_region
+from src.field_sanitizer import (
+    dedupe_overlapping_fields,
+    drop_degenerate_candidates,
+    field_hygiene_enabled,
+    is_degenerate_box,
+    is_page_furniture,
+)
 from src.radio_grouper import apply_radio_grouping
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
+from src.table_fill import emit_table_input_cells, table_fill_enabled
 from src.semantic_classifier import (
     apply_semantic_priors,
     build_semantic_diagnostics,
@@ -824,7 +832,16 @@ def _matching_label_cell(
         cell_norm = _field_label_slug(cell_text)
         if not cell_norm:
             continue
-        text_match = cell_norm == label_norm or (label_norm and label_norm in cell_norm) or (cell_norm and cell_norm in label_norm)
+        # Substring matching needs a label of real length: a 1-2 char key like
+        # "I" (the start of a consent sentence) would otherwise substring-match
+        # almost any cell ("I" in "RelationwithPatient") and steal a distant
+        # table cell. Exact equality is still allowed for short labels.
+        substring_ok = len(label_norm) >= 3
+        text_match = (
+            cell_norm == label_norm
+            or (substring_ok and label_norm in cell_norm)
+            or (len(cell_norm) >= 3 and cell_norm in label_norm)
+        )
         geom_match = _intersection_area(cell["bbox"], label_box) / max(_box_area(label_box), 0.000001)
         if not text_match and geom_match < 0.45:
             continue
@@ -908,6 +925,8 @@ def _synthetic_covers_solid_fragment(
     line_box: dict[str, float],
     page: int,
     visual_features: dict[str, Any],
+    label_box: dict[str, float] | None = None,
+    x_gap: float = 0.01,
 ) -> bool:
     for feature in visual_features.get("synthetic_underlines", []) or []:
         if int(feature.get("page") or 1) != page:
@@ -919,6 +938,15 @@ def _synthetic_covers_solid_fragment(
             continue
         same_row = abs(_box_center(line_box)[1] - _box_center(synthetic_box)[1]) <= max(line_box["height"] * 4.0, synthetic_box["height"] * 4.0, 0.01)
         if not same_row:
+            continue
+        # A broken span that begins *under* the label (its left edge sits left of
+        # the label's right edge) is a dashed-detector over-merge: it chained the
+        # label glyphs and one or more fill lines on the row into one span. Such
+        # a span must NOT cancel a precise per-field solid underline to the right
+        # of the label, otherwise that field loses its real answer line and falls
+        # back to a distant spurious region. A genuine broken underline starts to
+        # the right of its label, so the legitimate dedup case is unaffected.
+        if label_box is not None and float(synthetic_box["x"]) < _box_right(label_box) - x_gap:
             continue
         overlap = _intersection_area(line_box, synthetic_box) / max(_box_area(line_box), 1e-9)
         if overlap >= 0.72:
@@ -939,12 +967,22 @@ def _underline_candidates(
         if int(feature.get("page") or 1) != page:
             continue
         line_box = feature["bbox"]
-        if _synthetic_covers_solid_fragment(line_box, page, visual_features):
+        if _synthetic_covers_solid_fragment(line_box, page, visual_features, label_box, metrics["x_gap"]):
             continue
         line_center_x, line_center_y = _box_center(line_box)
         if _overlap_ratio(line_box, label_box) > 0.3:
             continue
-        right_of_label = float(line_box["x"]) >= _box_right(label_box) - metrics["x_gap"]
+        label_right = _box_right(label_box)
+        # An answer line that begins just under the label's trailing characters
+        # (e.g. "Desired Pay Range: ____") starts a hair left of the label's
+        # right edge yet clearly extends into the writing area. Accept it as
+        # right-of-label when its right edge runs past the label and it starts
+        # beyond the label's horizontal midpoint — without this, the genuine
+        # per-field underline is rejected and a distant region wins.
+        extends_past_label = _box_right(line_box) >= label_right + metrics["x_gap"]
+        right_of_label = float(line_box["x"]) >= label_right - metrics["x_gap"] or (
+            extends_past_label and line_box["x"] >= label_center_x
+        )
         same_row = abs(line_center_y - label_center_y) <= metrics["wide_row_tolerance"]
         just_below = 0 <= line_center_y - label_bottom <= metrics["wide_row_tolerance"] * 1.25
         below_label = line_center_y > label_center_y and abs(line_center_x - label_center_x) <= max(label_box["width"], 0.1)
@@ -995,7 +1033,13 @@ def _synthetic_underline_candidates(
             continue
 
         right_gap = float(line_box["x"]) - label_right
-        right_of_label = right_gap >= -metrics["x_gap"]
+        # Same tolerance as solid underlines: a dashed/dotted answer line that
+        # extends past the label counts as right-of-label even if it begins
+        # slightly under the label's trailing text.
+        extends_past_label = _box_right(line_box) >= label_right + metrics["x_gap"]
+        right_of_label = right_gap >= -metrics["x_gap"] or (
+            extends_past_label and float(line_box["x"]) >= label_center_x
+        )
         same_row = abs(line_center_y - label_center_y) <= metrics["wide_row_tolerance"]
         just_below = 0 <= line_center_y - label_bottom <= metrics["wide_row_tolerance"] * 1.25
         below_label = line_center_y > label_center_y and abs(line_center_x - label_center_x) <= max(label_box["width"], 0.1)
@@ -1133,6 +1177,61 @@ def _adjacent_whitespace_candidate(
         anchor_type="adjacent_whitespace",
         score=0.48 + (0.08 if multiline_hint else 0.0),
         reasons=["estimated_adjacent_whitespace", "no_direct_value_region"],
+    )
+
+
+def _repair_degenerate_value_anchor(
+    anchor_box: dict[str, float],
+    page: int,
+    text_boxes: list[dict[str, Any]],
+    metrics: dict[str, float],
+    multiline_hint: bool,
+) -> dict[str, Any] | None:
+    """Turn a collapsed (~1px) Textract value point into a usable answer region.
+
+    A degenerate value block still carries Textract's best estimate of *where*
+    the answer starts — e.g. ``Mobile No. :........`` where the colon touches the
+    dotted leader collapses the value to a point at the leader's start. We keep
+    that x/y anchor and extend rightward to the next text obstacle on the row,
+    the same way ``_adjacent_whitespace_candidate`` bounds a writing area. Used
+    only as a rescue when ordinary selection lands far from the label.
+    """
+    x_gap = metrics["x_gap"]
+    page_right = metrics["page_right"]
+    start_x = float(anchor_box["x"])
+    anchor_cy = _box_center(anchor_box)[1]
+    row_top = anchor_cy - metrics["wide_row_tolerance"] * 0.5
+    row_bottom = anchor_cy + metrics["wide_row_tolerance"] * 0.5
+
+    nearest_right = page_right
+    for item in text_boxes:
+        if int(item.get("page") or 1) != page:
+            continue
+        tb = item["bbox"]
+        if not (row_top <= _box_center(tb)[1] <= row_bottom):
+            continue
+        # Only text that *starts* meaningfully right of the anchor bounds the
+        # writing area. The label and its trailing colon sit at the anchor (the
+        # value collapsed onto them); using their left edge keeps the answer
+        # region from collapsing to zero width.
+        if float(tb["x"]) <= start_x + x_gap:
+            continue
+        nearest_right = min(nearest_right, float(tb["x"]))
+
+    end_x = min(page_right, nearest_right - x_gap)
+    width = end_x - start_x
+    if width < max(metrics["text_width"] * 0.3, 0.05):
+        return None
+    height = metrics["line_height"] * (3.2 if multiline_hint else 1.5)
+    y = max(0.0, anchor_cy - metrics["line_height"] * 0.7)
+    bbox = _normalize_box({"x": start_x, "y": y, "width": width, "height": height})
+    if not bbox:
+        return None
+    return _candidate(
+        bbox=bbox,
+        anchor_type="value_block",
+        score=0.86,
+        reasons=["repaired_degenerate_value", "extended_to_next_text"],
     )
 
 
@@ -1403,6 +1502,35 @@ def _select_answer_region(
     whitespace = _adjacent_whitespace_candidate(label_box, page, text_boxes, metrics, preliminary_multiline)
     if whitespace:
         candidates.append(whitespace)
+
+    # Field hygiene (rule 1): discard collapsed ~1px candidates — e.g. the
+    # zero-area value point Textract emits when a stray "( )" glyph hijacks the
+    # KEY's value block — so the genuine underline / table cell next to the
+    # label is selected instead of an invisible widget. No-op when every
+    # candidate is degenerate (the fallback below still fires).
+    # Remember degenerate value-block anchors *before* dropping: a collapsed
+    # value point still marks where Textract located the answer. We repair each
+    # into a usable region (extend right to the next text) and let it compete
+    # normally. A genuine nearby underline still out-scores it; only distant
+    # full-width junk (which would otherwise win for an inline "Label :....."
+    # field whose leader collapsed the value) loses to it.
+    degenerate_value_anchors = [
+        c["bbox"]
+        for c in candidates
+        if c.get("anchor_type") == "value_block" and is_degenerate_box(c.get("bbox"))
+    ]
+    candidates = drop_degenerate_candidates(candidates)
+    if field_hygiene_enabled() and degenerate_value_anchors:
+        repaired_candidates = [
+            rep
+            for anchor in degenerate_value_anchors
+            if (rep := _repair_degenerate_value_anchor(anchor, page, text_boxes, metrics, preliminary_multiline))
+            is not None
+        ]
+        if repaired_candidates:
+            # Drop any surviving degenerate originals (kept only when every
+            # candidate was degenerate) so the repaired region wins over the 1px.
+            candidates = [c for c in candidates if not is_degenerate_box(c.get("bbox"))] + repaired_candidates
 
     if not candidates:
         fallback = _candidate(
@@ -1844,6 +1972,18 @@ def build_anchored_mappings(
         }
         answer_region_debug_records.append(debug_entry)
 
+        # Field hygiene (rule 2): drop non-fillable page furniture — watermarks,
+        # source URLs and footer/header copyright lines that Textract promoted to
+        # KEYs (e.g. "SampleWords", a garbled footer line) but which are not form
+        # fields. Checkboxes / signatures / photos are exempt inside the helper.
+        furniture, furniture_reason = is_page_furniture(
+            label, label_box, answer_box, value, field_type=field_type
+        )
+        if furniture:
+            logger.info("[anchor] suppress page furniture label=%r reason=%s", label, furniture_reason)
+            debug_entry["outcome"] = f"suppressed_furniture_{furniture_reason}"
+            continue
+
         # Batch C (moderate): drop purely-estimated fields we could not resolve
         # to any plausible region rather than rendering them as low-value clutter.
         if (
@@ -2106,6 +2246,64 @@ def build_anchored_mappings(
             }
         )
 
+    # --- Table fill: emit widgets for empty input-grid cells ------------------
+    # Textract exposes only KEY_VALUE_SET keys as fields, so a grid whose data
+    # rows are not also KEYs (e.g. an EDUCATION table where only "High School" is
+    # a KEY) renders only a single fillable cell. This pass walks every Textract
+    # table, identifies input grids (label column + mostly-empty data columns)
+    # and emits one table_cell widget per empty data cell that no existing widget
+    # already covers. ON by default; FORM_PARSER_TABLE_FILL_ENABLED=false reverts.
+    table_fill_count = 0
+    if table_fill_enabled():
+        existing_field_boxes = [
+            (int(m.get("page") or 1), m["bbox"])
+            for m in mappings
+            if m.get("field_type") not in {"photo"} and isinstance(m.get("bbox"), dict)
+        ]
+        table_cell_mappings = emit_table_input_cells(
+            parsed.get("tables", []) or [],
+            section_index=section_index,
+            page_px=_page_px,
+            existing_field_boxes=existing_field_boxes,
+        )
+        for cell_mapping in table_cell_mappings:
+            mappings.append(cell_mapping)
+            anchor_records.append(
+                {
+                    "field_id": cell_mapping["field_id"],
+                    "label": cell_mapping["label"],
+                    "field_type": cell_mapping["field_type"],
+                    "page": cell_mapping["page"],
+                    "section_id": cell_mapping["section"].get("section_id"),
+                    "section_title": cell_mapping["section"].get("title"),
+                    "label_bbox": None,
+                    "answer_bbox": cell_mapping["bbox"],
+                    "anchor_type": "table_cell",
+                    "confidence": cell_mapping["confidence"],
+                    "label_overlap_ratio": 0.0,
+                    "candidate_count": 1,
+                }
+            )
+        table_fill_count = len(table_cell_mappings)
+        if table_fill_count:
+            logger.info("[anchor] table-fill emitted %d empty input-cell widget(s)", table_fill_count)
+
+    # Field hygiene (rule 3): drop fields whose answer region duplicates a
+    # stronger field's region (e.g. a printed sub-caption resolving onto the same
+    # underline as its parent label). Reconcile anchor_records so diagnostics and
+    # downstream consumers see the same set. Runs before comb/radio grouping so
+    # duplicates never seed a spurious group.
+    hygiene_dropped_duplicates: list[str] = []
+    if field_hygiene_enabled():
+        mappings, hygiene_dropped_duplicates = dedupe_overlapping_fields(mappings)
+        if hygiene_dropped_duplicates:
+            dropped_set = set(hygiene_dropped_duplicates)
+            anchor_records = [r for r in anchor_records if str(r.get("field_id")) not in dropped_set]
+            for entry in answer_region_debug_records:
+                if str(entry.get("field_id")) in dropped_set:
+                    entry["outcome"] = "dropped_duplicate_region"
+            logger.info("[anchor] dropped %d duplicate-region field(s)", len(hygiene_dropped_duplicates))
+
     mappings, comb_diagnostics = apply_comb_detection(
         mappings,
         visual_features,
@@ -2310,6 +2508,20 @@ def build_anchored_mappings(
         "table_cell_count": len(cells),
         "text_box_count": len(text_boxes),
         "anchors": anchor_records,
+    }
+    diagnostics["table_fill"] = {
+        "enabled": table_fill_enabled(),
+        "emitted_input_cell_count": table_fill_count,
+    }
+    diagnostics["field_hygiene"] = {
+        "enabled": field_hygiene_enabled(),
+        "dropped_duplicate_region_count": len(hygiene_dropped_duplicates),
+        "dropped_duplicate_field_ids": hygiene_dropped_duplicates,
+        "suppressed_furniture": [
+            {"field_id": e.get("field_id"), "label": e.get("label"), "outcome": e.get("outcome")}
+            for e in answer_region_debug_records
+            if str(e.get("outcome") or "").startswith("suppressed_furniture_")
+        ],
     }
     diagnostics["global_assignment"] = (
         assignment_diagnostics if assignment_diagnostics is not None else {"enabled": False}

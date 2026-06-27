@@ -245,10 +245,17 @@ def _run(raw_response, parsed, image_path, enabled):
         os.environ[FLAG] = "true"
     else:
         os.environ.pop(FLAG, None)
+    # Isolate the global-assignment feature under test: the (default-ON) field
+    # hygiene pass also collapses exact-overlap duplicates, which would mask the
+    # contention these tests deliberately set up. Phase H does more than drop a
+    # duplicate (it reassigns the loser to a different region), so we measure it
+    # with hygiene neutralised.
+    os.environ["FORM_PARSER_FIELD_HYGIENE_ENABLED"] = "false"
     try:
         return fae.build_anchored_mappings(raw_response, parsed, image_path)
     finally:
         os.environ.pop(FLAG, None)
+        os.environ.pop("FORM_PARSER_FIELD_HYGIENE_ENABLED", None)
 
 
 def _mapping_signature(result):

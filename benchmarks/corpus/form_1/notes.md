@@ -1,14 +1,14 @@
 # Form Notes
 
-Form Type:
-Pages:
+Form Type:Simple with checkboxes
+Pages:1
 
-Contains Tables:
-Contains Comb Fields:
-Contains Repeating Sections:
-Contains Checkbox Matrix:
+Contains Tables:no
+Contains Comb Fields:no
+Contains Repeating Sections:yes
+Contains Checkbox Matrix:yes
 
-Main Failure:
+Main Failure:None
 Root Cause Hypothesis:
 
-Observations:
+Observations:Perfect mapping

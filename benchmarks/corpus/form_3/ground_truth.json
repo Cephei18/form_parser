@@ -1,3 +1,258 @@
 {
-  "widgets": []
+  "schema_version": "1.0",
+  "form_id": "form_3",
+  "doc_class": "employment_application",
+  "source": "SampleWords - Application for Employment template",
+  "page_count": 1,
+  "page_types": {
+    "1": "fillable"
+  },
+  "failure_modes": [
+    "bracket_fragmentation",
+    "degenerate_value_block",
+    "duplicate_mappings",
+    "non_fillable_false_positive",
+    "table_under_segmentation",
+    "missing_widgets"
+  ],
+  "widgets": [
+    {
+      "widget_id": "date_of_application",
+      "page": 1,
+      "type": "date",
+      "label": "Date of Application",
+      "bbox": { "x": 0.754, "y": 0.121, "width": 0.137, "height": 0.014 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "name",
+      "page": 1,
+      "type": "text",
+      "label": "Name (Last First Middle)",
+      "bbox": { "x": 0.159, "y": 0.163, "width": 0.736, "height": 0.017 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "address",
+      "page": 1,
+      "type": "text",
+      "label": "Address (Street (Apt) City/State Zip)",
+      "bbox": { "x": 0.176, "y": 0.209, "width": 0.718, "height": 0.017 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "alternate_address",
+      "page": 1,
+      "type": "text",
+      "label": "Alternate Address (Street City/State Zip)",
+      "bbox": { "x": 0.252, "y": 0.252, "width": 0.639, "height": 0.017 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "home_telephone",
+      "page": 1,
+      "type": "text",
+      "label": "Home Telephone",
+      "bbox": { "x": 0.268, "y": 0.298, "width": 0.165, "height": 0.018 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "mobile_telephone",
+      "page": 1,
+      "type": "text",
+      "label": "Mobile Telephone",
+      "bbox": { "x": 0.44, "y": 0.298, "width": 0.15, "height": 0.018 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "email",
+      "page": 1,
+      "type": "text",
+      "label": "Email",
+      "bbox": { "x": 0.595, "y": 0.298, "width": 0.305, "height": 0.018 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "how_did_you_learn",
+      "page": 1,
+      "type": "text",
+      "label": "How did you learn about our company",
+      "bbox": { "x": 0.376, "y": 0.346, "width": 0.522, "height": 0.017 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "PERSONAL INFORMATION"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "position_sought",
+      "page": 1,
+      "type": "text",
+      "label": "Position Sought",
+      "bbox": { "x": 0.274, "y": 0.393, "width": 0.246, "height": 0.017 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "available_start_date",
+      "page": 1,
+      "type": "date",
+      "label": "Available Start Date",
+      "bbox": { "x": 0.744, "y": 0.401, "width": 0.137, "height": 0.014 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "desired_pay_range",
+      "page": 1,
+      "type": "text",
+      "label": "Desired Pay Range (Hourly or Salary)",
+      "bbox": { "x": 0.29, "y": 0.443, "width": 0.15, "height": 0.015 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "are_you_currently_employed",
+      "page": 1,
+      "type": "text",
+      "label": "Are you currently employed",
+      "bbox": { "x": 0.665, "y": 0.445, "width": 0.169, "height": 0.015 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 1
+    },
+
+    {
+      "widget_id": "edu_high_school_name_location",
+      "page": 1,
+      "type": "table_cell",
+      "label": "High School - Name and Location",
+      "bbox": { "x": 0.274, "y": 0.524, "width": 0.187, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_high_school_graduate",
+      "page": 1,
+      "type": "table_cell",
+      "label": "High School - Graduate",
+      "bbox": { "x": 0.461, "y": 0.524, "width": 0.118, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_high_school_degree_major",
+      "page": 1,
+      "type": "table_cell",
+      "label": "High School - Degree Major / Subjects of Study",
+      "bbox": { "x": 0.579, "y": 0.524, "width": 0.272, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_college_name_location",
+      "page": 1,
+      "type": "table_cell",
+      "label": "College or University - Name and Location",
+      "bbox": { "x": 0.274, "y": 0.58, "width": 0.187, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_college_graduate",
+      "page": 1,
+      "type": "table_cell",
+      "label": "College or University - Graduate",
+      "bbox": { "x": 0.461, "y": 0.58, "width": 0.118, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_college_degree_major",
+      "page": 1,
+      "type": "table_cell",
+      "label": "College or University - Degree Major / Subjects of Study",
+      "bbox": { "x": 0.579, "y": 0.58, "width": 0.272, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_specialized_name_location",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Specialized Training, Trade School, etc. - Name and Location",
+      "bbox": { "x": 0.274, "y": 0.636, "width": 0.187, "height": 0.05 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_specialized_graduate",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Specialized Training, Trade School, etc. - Graduate",
+      "bbox": { "x": 0.461, "y": 0.636, "width": 0.118, "height": 0.05 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_specialized_degree_major",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Specialized Training, Trade School, etc. - Degree Major / Subjects of Study",
+      "bbox": { "x": 0.579, "y": 0.636, "width": 0.272, "height": 0.05 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_other_name_location",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Other Education - Name and Location",
+      "bbox": { "x": 0.274, "y": 0.692, "width": 0.187, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_other_graduate",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Other Education - Graduate",
+      "bbox": { "x": 0.461, "y": 0.692, "width": 0.118, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "edu_other_degree_major",
+      "page": 1,
+      "type": "table_cell",
+      "label": "Other Education - Degree Major / Subjects of Study",
+      "bbox": { "x": 0.579, "y": 0.692, "width": 0.272, "height": 0.047 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT", "EDUCATION"],
+      "repeat_group_id": "education_table",
+      "cell_count": 1
+    },
+    {
+      "widget_id": "areas_of_proficiency",
+      "page": 1,
+      "type": "multiline",
+      "label": "Please list your areas of highest proficiency, special skills or other items that may contribute to your abilities in performing the above mentioned position.",
+      "bbox": { "x": 0.1, "y": 0.783, "width": 0.796, "height": 0.085 },
+      "section_path": ["APPLICATION FOR EMPLOYMENT"],
+      "cell_count": 3
+    }
+  ]
 }

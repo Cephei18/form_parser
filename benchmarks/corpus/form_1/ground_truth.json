@@ -1,3 +1,5459 @@
-{
-  "widgets": []
-}
+[
+  {
+    "field_id": "anchored_field_1",
+    "label": "Position applied for:",
+    "qualified_label": "JOB APPLICATION FORM › Position applied for:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.236858,
+      "y": 0.256377,
+      "width": 0.245286,
+      "height": 0.015248
+    },
+    "label_bbox": {
+      "x": 0.034879,
+      "y": 0.256571,
+      "width": 0.169588,
+      "height": 0.013752
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.236858,
+        "y": 0.256377,
+        "width": 0.245286,
+        "height": 0.015248
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 426.3444,
+        "y": 652.735842,
+        "width": 441.5148,
+        "height": 38.821408
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 31,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.236858,
+            "y": 0.256377,
+            "width": 0.245286,
+            "height": 0.015248
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "638c7d25-d28e-4935-856a-d49ea16d9e08",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.231225,
+            "y": 0.24282,
+            "width": 0.153974,
+            "height": 0.028684
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9076,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "1151198c-1a90-441c-8b25-7ceddc4dccf3",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 5,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.258075,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8688,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.258075,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8688,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.22901,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8199,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "8393f9be-51cd-4433-97cd-beef4f854268",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_3",
+    "label": "College",
+    "qualified_label": "JOB APPLICATION FORM › College",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232647,
+      "y": 0.68251,
+      "width": 0.249989,
+      "height": 0.015972
+    },
+    "label_bbox": {
+      "x": 0.034232,
+      "y": 0.683259,
+      "width": 0.06385,
+      "height": 0.014085
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232647,
+        "y": 0.68251,
+        "width": 0.249989,
+        "height": 0.015972
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 418.7646,
+        "y": 1737.6704599999998,
+        "width": 449.98019999999997,
+        "height": 40.664712
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 19,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232647,
+            "y": 0.68251,
+            "width": 0.249989,
+            "height": 0.015972
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "2e05d533-04b6-4696-b2e2-0f406c5f9c73",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503035,
+            "y": 0.667973,
+            "width": 0.476258,
+            "height": 0.032227
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8945,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "d1078348-5fbe-41c1-b31e-ebb8aaf10b2b",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 4,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.684627,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8699,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.684627,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8699,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.64692,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7865,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "01a285a8-be59-499d-b77a-1ba4a6df6da7",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_4",
+    "label": "Other:",
+    "qualified_label": "JOB APPLICATION FORM › Other:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232393,
+      "y": 0.872835,
+      "width": 0.250684,
+      "height": 0.015351
+    },
+    "label_bbox": {
+      "x": 0.03415,
+      "y": 0.873156,
+      "width": 0.053849,
+      "height": 0.011268
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232393,
+        "y": 0.872835,
+        "width": 0.250684,
+        "height": 0.015351
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 418.3074,
+        "y": 2222.2379100000003,
+        "width": 451.23120000000006,
+        "height": 39.083646
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 11,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232393,
+            "y": 0.872835,
+            "width": 0.250684,
+            "height": 0.015351
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "1cbd40b3-c8c4-47ad-a296-60a46e8b74e8",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503031,
+            "y": 0.851477,
+            "width": 0.476262,
+            "height": 0.037732
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8913,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "7b046ebb-5e30-4796-b609-b2c0f9ada247",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 10,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.874729,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8638,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.874729,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8638,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.837022,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7919,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "0c802f3e-debe-4778-be57-b1ebbf2a67ae",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_5",
+    "label": "Degree / Certification:",
+    "qualified_label": "JOB APPLICATION FORM › Degree / Certification:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.23106,
+      "y": 0.924597,
+      "width": 0.746394,
+      "height": 0.021766
+    },
+    "label_bbox": {
+      "x": 0.0349,
+      "y": 0.92492,
+      "width": 0.189117,
+      "height": 0.013984
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.23106,
+        "y": 0.924597,
+        "width": 0.746394,
+        "height": 0.021766
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 415.90799999999996,
+        "y": 2354.023962,
+        "width": 1343.5092,
+        "height": 55.416236000000005
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 6,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.23106,
+            "y": 0.924597,
+            "width": 0.746394,
+            "height": 0.021766
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "54f08973-3997-4195-a775-c43cdcd7f135",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.50303,
+            "y": 0.917492,
+            "width": 0.476263,
+            "height": 0.031662
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8856,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "6c5c5c07-55e9-43db-a219-32c3792fbf9f",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 12,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.932074,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8476,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.903401,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8426,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.903401,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8426,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "f5d8005a-74d4-4298-9e17-99254612e29d",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_7",
+    "label": "City / State:",
+    "qualified_label": "JOB APPLICATION FORM › City / State:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694752,
+      "y": 0.778777,
+      "width": 0.281861,
+      "height": 0.014545
+    },
+    "label_bbox": {
+      "x": 0.540737,
+      "y": 0.777811,
+      "width": 0.102225,
+      "height": 0.014329
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694752,
+        "y": 0.778777,
+        "width": 0.281861,
+        "height": 0.014545
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1250.5536,
+        "y": 1982.7662420000001,
+        "width": 507.34979999999996,
+        "height": 37.03157
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 8,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694752,
+            "y": 0.778777,
+            "width": 0.281861,
+            "height": 0.014545
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "3a58fda5-aa53-43c3-96b3-a2fdda24ffd7",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.779678,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8685,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.742364,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7886,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.80835,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7587,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.814769,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "c3db7c8f-8e11-442f-bf68-f498967cf937",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_8",
+    "label": "Degree / Certification:",
+    "qualified_label": "JOB APPLICATION FORM › Degree / Certification:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.231011,
+      "y": 0.835718,
+      "width": 0.74557,
+      "height": 0.015167
+    },
+    "label_bbox": {
+      "x": 0.034708,
+      "y": 0.83557,
+      "width": 0.189083,
+      "height": 0.014211
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.231011,
+        "y": 0.835718,
+        "width": 0.74557,
+        "height": 0.015167
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 415.8198,
+        "y": 2127.7380279999998,
+        "width": 1342.0259999999998,
+        "height": 38.615182
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 12,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.231011,
+            "y": 0.835718,
+            "width": 0.74557,
+            "height": 0.015167
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "4cccfed0-6fed-460d-922b-84376893ec94",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503032,
+            "y": 0.822399,
+            "width": 0.476261,
+            "height": 0.029086
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8897,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "b5c763b5-e5cb-4824-840e-dda20d680712",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 9,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.837022,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8699,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.80835,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8204,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.80835,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8204,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "6a021c8f-bfff-4b25-a1e4-8133e9d44e38",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_9",
+    "label": "From:",
+    "qualified_label": "JOB APPLICATION FORM › From:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232515,
+      "y": 0.711237,
+      "width": 0.250517,
+      "height": 0.016087
+    },
+    "label_bbox": {
+      "x": 0.03455,
+      "y": 0.712431,
+      "width": 0.047731,
+      "height": 0.010972
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232515,
+        "y": 0.711237,
+        "width": 0.250517,
+        "height": 0.016087
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 418.527,
+        "y": 1810.809402,
+        "width": 450.93059999999997,
+        "height": 40.957502
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 19,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232515,
+            "y": 0.711237,
+            "width": 0.250517,
+            "height": 0.016087
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "e785e0c2-ab2a-4c8a-ac18-033aa33dc2f5",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503034,
+            "y": 0.700194,
+            "width": 0.476259,
+            "height": 0.027512
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8923,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "53aa7449-4147-4622-99ab-e6ee609bce76",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 5,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.713299,
+            "width": 0.047222,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8659,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.281111,
+            "y": 0.713299,
+            "width": 0.077222,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8659,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.358889,
+            "y": 0.713299,
+            "width": 0.123889,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8659,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "badf66f6-4921-4902-9fb2-3945730485e7",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_11",
+    "label": "City / State:",
+    "qualified_label": "JOB APPLICATION FORM › City / State:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.693959,
+      "y": 0.873002,
+      "width": 0.282812,
+      "height": 0.015229
+    },
+    "label_bbox": {
+      "x": 0.541016,
+      "y": 0.872767,
+      "width": 0.101829,
+      "height": 0.014115
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.693959,
+        "y": 0.873002,
+        "width": 0.282812,
+        "height": 0.015229
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1249.1262,
+        "y": 2222.663092,
+        "width": 509.0616,
+        "height": 38.773033999999996
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 5,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.693959,
+            "y": 0.873002,
+            "width": 0.282812,
+            "height": 0.015229
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "8b1952ce-ac38-4b42-89a9-c45b4b561b95",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.874729,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8677,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.903401,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7579,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.932074,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.58,
+          "reasons": [
+            "visual_underline",
+            "below_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.650844,
+            "y": 0.872511,
+            "width": 0.100607,
+            "height": 0.016194
+          },
+          "anchor_type": "adjacent_whitespace",
+          "score": 0.48,
+          "reasons": [
+            "estimated_adjacent_whitespace",
+            "no_direct_value_region"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "e8ca04ea-fc86-4257-ac29-37fa5d905577",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_12",
+    "label": "To:",
+    "qualified_label": "JOB APPLICATION FORM › To:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694564,
+      "y": 0.713573,
+      "width": 0.281936,
+      "height": 0.013693
+    },
+    "label_bbox": {
+      "x": 0.539776,
+      "y": 0.712341,
+      "width": 0.02655,
+      "height": 0.011016
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694564,
+        "y": 0.713573,
+        "width": 0.281936,
+        "height": 0.013693
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1250.2151999999999,
+        "y": 1816.756858,
+        "width": 507.48480000000006,
+        "height": 34.862378
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 10,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694564,
+            "y": 0.713573,
+            "width": 0.281936,
+            "height": 0.013693
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "c38f1656-674f-46ff-a2e5-44839520b9d2",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.713299,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8656,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.684627,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8246,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.742364,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7543,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.719718,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0131
+        }
+      ],
+      "key_block_id": "7a015df5-fad3-4348-b75b-cd977a89542a",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_15",
+    "label": "From:",
+    "qualified_label": "JOB APPLICATION FORM › From:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.23226,
+      "y": 0.807323,
+      "width": 0.250659,
+      "height": 0.015078
+    },
+    "label_bbox": {
+      "x": 0.034623,
+      "y": 0.807322,
+      "width": 0.047632,
+      "height": 0.010803
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.23226,
+        "y": 0.807323,
+        "width": 0.250659,
+        "height": 0.015078
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 418.068,
+        "y": 2055.444358,
+        "width": 451.18620000000004,
+        "height": 38.388588
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 13,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.23226,
+            "y": 0.807323,
+            "width": 0.250659,
+            "height": 0.015078
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "b53b2b00-1b6f-4374-99ab-4258e4503daf",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503033,
+            "y": 0.794107,
+            "width": 0.476261,
+            "height": 0.0283
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8897,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "918f59e5-3aef-481e-9114-1bbdd1410e3c",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 8,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.80835,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.865,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.80835,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.865,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.779678,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8253,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "8886b62a-8c67-4c29-9029-8178a4e801d6",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_16",
+    "label": "To:",
+    "qualified_label": "JOB APPLICATION FORM › To:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.693742,
+      "y": 0.90286,
+      "width": 0.283012,
+      "height": 0.014679
+    },
+    "label_bbox": {
+      "x": 0.539588,
+      "y": 0.902111,
+      "width": 0.026656,
+      "height": 0.01114
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.693742,
+        "y": 0.90286,
+        "width": 0.283012,
+        "height": 0.014679
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1248.7356,
+        "y": 2298.68156,
+        "width": 509.42159999999996,
+        "height": 37.372734
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 5,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.693742,
+            "y": 0.90286,
+            "width": 0.283012,
+            "height": 0.014679
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "884cfd1b-7e32-4e39-9552-908c401ebd07",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.903401,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8646,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.874729,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8256,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.932074,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.6748,
+          "reasons": [
+            "visual_underline",
+            "below_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.574244,
+            "y": 0.900367,
+            "width": 0.177207,
+            "height": 0.016194
+          },
+          "anchor_type": "adjacent_whitespace",
+          "score": 0.48,
+          "reasons": [
+            "estimated_adjacent_whitespace",
+            "no_direct_value_region"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "0a95b92e-31a0-45c1-b9b6-207c57ea033b",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_17",
+    "label": "Email Address:",
+    "qualified_label": "JOB APPLICATION FORM › Email Address:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "multiline",
+    "bbox": {
+      "x": 0.692504,
+      "y": 0.19865,
+      "width": 0.284125,
+      "height": 0.015125
+    },
+    "label_bbox": {
+      "x": 0.540945,
+      "y": 0.198999,
+      "width": 0.125875,
+      "height": 0.011165
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.692504,
+        "y": 0.19865,
+        "width": 0.284125,
+        "height": 0.015125
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 2,
+    "field_bboxes": [
+      {
+        "x": 1246.5072,
+        "y": 505.7629,
+        "width": 511.425,
+        "height": 38.50825
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [
+        "multiline_label_keyword"
+      ],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 17,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.692504,
+            "y": 0.19865,
+            "width": 0.284125,
+            "height": 0.015125
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "99d13454-fd98-4353-934d-fad07835a419",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.69204,
+            "y": 0.185055,
+            "width": 0.284612,
+            "height": 0.028686
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9037,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "7e92d5db-8800-42a0-9230-6709e575ef15",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 3,
+          "column_index": 7,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.200337,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8645,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695556,
+            "y": 0.171665,
+            "width": 0.280556,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8258,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.22901,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7547,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "2b82e148-b302-4e47-a853-5ccd21845b78",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_19",
+    "label": "High School:",
+    "qualified_label": "JOB APPLICATION FORM › High School:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232044,
+      "y": 0.587635,
+      "width": 0.250714,
+      "height": 0.015275
+    },
+    "label_bbox": {
+      "x": 0.03462,
+      "y": 0.587752,
+      "width": 0.104331,
+      "height": 0.013908
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232044,
+        "y": 0.587635,
+        "width": 0.250714,
+        "height": 0.015275
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 417.6792,
+        "y": 1496.11871,
+        "width": 451.2852,
+        "height": 38.89015
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 20,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232044,
+            "y": 0.587635,
+            "width": 0.250714,
+            "height": 0.015275
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "7a8dd5db-071a-4444-a1f4-0dcaa8767a08",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503036,
+            "y": 0.571331,
+            "width": 0.476256,
+            "height": 0.032203
+          },
+          "anchor_type": "table_cell",
+          "score": 0.897,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "ecf5feda-8f78-40ae-b383-fdd9716e18d3",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 1,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.589183,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8694,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.589183,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8694,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.529223,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7663,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "right_of_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "9143040a-ea12-4361-a0c2-1dfbaa0fe4ab",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_20",
+    "label": "Diploma:",
+    "qualified_label": "JOB APPLICATION FORM › Diploma:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694929,
+      "y": 0.741516,
+      "width": 0.281591,
+      "height": 0.014656
+    },
+    "label_bbox": {
+      "x": 0.540947,
+      "y": 0.740969,
+      "width": 0.074494,
+      "height": 0.013526
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694929,
+        "y": 0.741516,
+        "width": 0.281591,
+        "height": 0.014656
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1250.8722,
+        "y": 1887.8997359999998,
+        "width": 506.86379999999997,
+        "height": 37.314176
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 9,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694929,
+            "y": 0.741516,
+            "width": 0.281591,
+            "height": 0.014656
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "b61490ea-3fe7-4a7a-b7f2-9edf20da5137",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.742364,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8688,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.713299,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.82,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.814769,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.779678,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7259,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "0c6fe1f4-0593-41fd-ab21-9999aaf2f685",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_21",
+    "label": "S.S.N:",
+    "qualified_label": "JOB APPLICATION FORM › S.S.N:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.693783,
+      "y": 0.227711,
+      "width": 0.282593,
+      "height": 0.015175
+    },
+    "label_bbox": {
+      "x": 0.540603,
+      "y": 0.227836,
+      "width": 0.045928,
+      "height": 0.011
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.693783,
+        "y": 0.227711,
+        "width": 0.282593,
+        "height": 0.015175
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1248.8094,
+        "y": 579.752206,
+        "width": 508.6674,
+        "height": 38.635549999999995
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 18,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.693783,
+            "y": 0.227711,
+            "width": 0.282593,
+            "height": 0.015175
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "72d7902b-11fe-4fab-8a8d-10d6430c3261",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.623667,
+            "y": 0.213741,
+            "width": 0.068373,
+            "height": 0.029077
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8954,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "00503a84-2e1a-4d3a-9d61-c4d7c2ebca13",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 4,
+          "column_index": 6,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.22901,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8648,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.200337,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8255,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.594531,
+            "y": 0.212333,
+            "width": 0.069913,
+            "height": 0.05106
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7966,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector",
+            "trimmed_label_overlap"
+          ],
+          "source_type": "dotted",
+          "segment_count": 13,
+          "visual_confidence": 0.776,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "34c297df-94ed-4f5a-bd2a-be30734fa9b6",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_22",
+    "label": "City, State:",
+    "qualified_label": "JOB APPLICATION FORM › City, State:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.23658,
+      "y": 0.198845,
+      "width": 0.245497,
+      "height": 0.015077
+    },
+    "label_bbox": {
+      "x": 0.034193,
+      "y": 0.199104,
+      "width": 0.093108,
+      "height": 0.013832
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.23658,
+        "y": 0.198845,
+        "width": 0.245497,
+        "height": 0.015077
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 425.84400000000005,
+        "y": 506.25937,
+        "width": 441.89459999999997,
+        "height": 38.386042
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 26,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.23658,
+            "y": 0.198845,
+            "width": 0.245497,
+            "height": 0.015077
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "9c9dd1ff-09f5-49e0-ac7c-f6a9be0c7a03",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.231227,
+            "y": 0.18506,
+            "width": 0.153974,
+            "height": 0.028684
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9037,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "1ed2ed82-f024-4032-8661-6a5f9364cac7",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 3,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.200337,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.87,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.200337,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.87,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.171665,
+            "width": 0.457778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8203,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "ea8d8f38-7920-4ac1-96f0-86fe4679de37",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_23",
+    "label": "Date available:",
+    "qualified_label": "JOB APPLICATION FORM › Date available:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.693617,
+      "y": 0.256216,
+      "width": 0.283056,
+      "height": 0.015619
+    },
+    "label_bbox": {
+      "x": 0.540977,
+      "y": 0.256621,
+      "width": 0.123973,
+      "height": 0.010988
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.693617,
+        "y": 0.256216,
+        "width": 0.283056,
+        "height": 0.015619
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1248.5106,
+        "y": 652.325936,
+        "width": 509.50079999999997,
+        "height": 39.765974
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 14,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.693617,
+            "y": 0.256216,
+            "width": 0.283056,
+            "height": 0.015619
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "7693df6f-fcb1-4e7c-8250-735d533b7449",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.69204,
+            "y": 0.242816,
+            "width": 0.284751,
+            "height": 0.028685
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8993,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "2204b4e9-27da-4633-975d-e311ec40f2a9",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 5,
+          "column_index": 7,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.258075,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8637,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.22901,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.825,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.593889,
+            "y": 0.269678,
+            "width": 0.116111,
+            "height": 0.05106
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7405,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 8,
+          "visual_confidence": 0.716,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "cba8ca52-6deb-4dc0-822b-d308cef5ac57",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_27",
+    "label": "Phone Number:",
+    "qualified_label": "JOB APPLICATION FORM › Phone Number:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.236194,
+      "y": 0.227663,
+      "width": 0.246333,
+      "height": 0.015142
+    },
+    "label_bbox": {
+      "x": 0.034779,
+      "y": 0.227835,
+      "width": 0.130356,
+      "height": 0.011034
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.236194,
+        "y": 0.227663,
+        "width": 0.246333,
+        "height": 0.015142
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 425.14919999999995,
+        "y": 579.629998,
+        "width": 443.3994,
+        "height": 38.551531999999995
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 31,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.236194,
+            "y": 0.227663,
+            "width": 0.246333,
+            "height": 0.015142
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "f335a756-2f77-41ae-bd88-59dbaf4b76dd",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.231226,
+            "y": 0.213743,
+            "width": 0.153974,
+            "height": 0.029077
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9031,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "ab5e9a3e-16e3-46bd-8330-65a966205dd8",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 4,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.22901,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8648,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.22901,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8648,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.200337,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8254,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "ffacc608-5504-4d83-8169-e8258fa6c376",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_28",
+    "label": "If yes, please explain.",
+    "qualified_label": "JOB APPLICATION FORM › If yes, please explain.",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.481477,
+      "y": 0.505949,
+      "width": 0.494806,
+      "height": 0.016148
+    },
+    "label_bbox": {
+      "x": 0.034802,
+      "y": 0.507124,
+      "width": 0.178343,
+      "height": 0.013686
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.481477,
+        "y": 0.505949,
+        "width": 0.494806,
+        "height": 0.016148
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 866.6586,
+        "y": 1288.146154,
+        "width": 890.6508,
+        "height": 41.112808
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 18,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.481477,
+            "y": 0.505949,
+            "width": 0.494806,
+            "height": 0.016148
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "6f21caf7-ee45-4240-982a-4c660525a6e4",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.525273,
+            "y": 0.499403,
+            "width": 0.081714,
+            "height": 0.023577
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8885,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "6dc9e334-8eeb-43ea-9e71-25ac9a7f98c3",
+          "table_id": "030f3544-1aa6-4dfd-875b-7e942ee6edd7",
+          "row_index": 5,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.022778,
+            "y": 0.547918,
+            "width": 0.953333,
+            "height": 0.02553
+          },
+          "anchor_type": "empty_rectangle",
+          "score": 0.7671,
+          "reasons": [
+            "visual_empty_rectangle",
+            "below_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.035556,
+            "y": 0.698744,
+            "width": 0.083333,
+            "height": 0.049095
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.742,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 10,
+          "visual_confidence": 0.82,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.036111,
+            "y": 0.777456,
+            "width": 0.187222,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.742,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 22,
+          "visual_confidence": 0.82,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "1eec7bcc-6b3f-4cba-be0a-65710a2e0d90",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_30",
+    "label": "City / State:",
+    "qualified_label": "JOB APPLICATION FORM › City / State:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.69401,
+      "y": 0.587496,
+      "width": 0.282429,
+      "height": 0.015491
+    },
+    "label_bbox": {
+      "x": 0.540823,
+      "y": 0.587203,
+      "width": 0.101743,
+      "height": 0.014549
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.69401,
+        "y": 0.587496,
+        "width": 0.282429,
+        "height": 0.015491
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1249.218,
+        "y": 1495.764816,
+        "width": 508.37219999999996,
+        "height": 39.440086
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 11,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.69401,
+            "y": 0.587496,
+            "width": 0.282429,
+            "height": 0.015491
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "01227cfc-5551-4cdd-b111-5e12d832bd40",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.589183,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8685,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.617855,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7587,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.626785,
+            "width": 0.1,
+            "height": 0.06481
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.719718,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "eff9f953-09db-448e-bc8e-17246fec47d1",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_33",
+    "label": "From:",
+    "qualified_label": "JOB APPLICATION FORM › From:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.23215,
+      "y": 0.901765,
+      "width": 0.250693,
+      "height": 0.015503
+    },
+    "label_bbox": {
+      "x": 0.034523,
+      "y": 0.902156,
+      "width": 0.047717,
+      "height": 0.011028
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.23215,
+        "y": 0.901765,
+        "width": 0.250693,
+        "height": 0.015503
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 417.87,
+        "y": 2295.89369,
+        "width": 451.24739999999997,
+        "height": 39.470638
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 10,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.23215,
+            "y": 0.901765,
+            "width": 0.250693,
+            "height": 0.015503
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "7afce610-7632-4311-9145-980c05551ab5",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503031,
+            "y": 0.8892,
+            "width": 0.476262,
+            "height": 0.028301
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8861,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "9d99cc25-d8cb-4ef2-b6ff-05b928124d4d",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 11,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.903401,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8646,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.903401,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8646,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.874729,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8257,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "ba2df62a-31ac-40cf-9aba-9d2054db8404",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_34",
+    "label": "Diploma:",
+    "qualified_label": "JOB APPLICATION FORM › Diploma:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.69358,
+      "y": 0.646075,
+      "width": 0.282842,
+      "height": 0.014648
+    },
+    "label_bbox": {
+      "x": 0.541011,
+      "y": 0.645639,
+      "width": 0.074411,
+      "height": 0.01373
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.69358,
+        "y": 0.646075,
+        "width": 0.282842,
+        "height": 0.014648
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1248.444,
+        "y": 1644.9069499999998,
+        "width": 509.1156,
+        "height": 37.293808
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 11,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.69358,
+            "y": 0.646075,
+            "width": 0.282842,
+            "height": 0.014648
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "e17d807b-fff6-441a-a3ca-5a7cd1463919",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.64692,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8688,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.617855,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8191,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.719718,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.814769,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "c9f808fd-ef6d-404b-945d-7103fe14607d",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_35",
+    "label": "If yes, write the start and end dates.",
+    "qualified_label": "JOB APPLICATION FORM › If yes, write the start and end dates.",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.481453,
+      "y": 0.449142,
+      "width": 0.495257,
+      "height": 0.016084
+    },
+    "label_bbox": {
+      "x": 0.034487,
+      "y": 0.450154,
+      "width": 0.307803,
+      "height": 0.013638
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.481453,
+        "y": 0.449142,
+        "width": 0.495257,
+        "height": 0.016084
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 866.6154,
+        "y": 1143.515532,
+        "width": 891.4626,
+        "height": 40.949864000000005
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 30,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.481453,
+            "y": 0.449142,
+            "width": 0.495257,
+            "height": 0.016084
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "90bd3281-694f-4fb3-9cce-dcbeefffef9b",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.525274,
+            "y": 0.413743,
+            "width": 0.081715,
+            "height": 0.05226
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8786,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "e7d23b66-cb19-42f2-8784-8278848fc06c",
+          "table_id": "030f3544-1aa6-4dfd-875b-7e942ee6edd7",
+          "row_index": 3,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.482222,
+            "y": 0.451319,
+            "width": 0.126111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8699,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.608889,
+            "y": 0.451319,
+            "width": 0.367222,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8699,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.035556,
+            "y": 0.698744,
+            "width": 0.083333,
+            "height": 0.049095
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.742,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 10,
+          "visual_confidence": 0.82,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "9095374c-eff8-4c53-a3f9-6da4ecab68d7",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_36",
+    "label": "Other:",
+    "qualified_label": "JOB APPLICATION FORM › Other:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232698,
+      "y": 0.778335,
+      "width": 0.250427,
+      "height": 0.01524
+    },
+    "label_bbox": {
+      "x": 0.034183,
+      "y": 0.778566,
+      "width": 0.053761,
+      "height": 0.011011
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232698,
+        "y": 0.778335,
+        "width": 0.250427,
+        "height": 0.01524
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 418.85639999999995,
+        "y": 1981.64091,
+        "width": 450.7686,
+        "height": 38.80104
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 14,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232698,
+            "y": 0.778335,
+            "width": 0.250427,
+            "height": 0.01524
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "d15ecde8-5f57-4f05-bd40-f13af2679cdf",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503033,
+            "y": 0.761886,
+            "width": 0.47626,
+            "height": 0.032228
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8914,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "d1e06a4c-d6f7-4210-bdfa-ba15e370f60d",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 7,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.779678,
+            "width": 0.249444,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.865,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.779678,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.865,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.742364,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7921,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "88737145-f0d3-42df-936c-429b72eea67a",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_37",
+    "label": "Address:",
+    "qualified_label": "JOB APPLICATION FORM › Address:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "multiline",
+    "bbox": {
+      "x": 0.23627,
+      "y": 0.170242,
+      "width": 0.740125,
+      "height": 0.014892
+    },
+    "label_bbox": {
+      "x": 0.033661,
+      "y": 0.170375,
+      "width": 0.07586,
+      "height": 0.011
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.23627,
+        "y": 0.170242,
+        "width": 0.740125,
+        "height": 0.014892
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 2,
+    "field_bboxes": [
+      {
+        "x": 425.286,
+        "y": 433.436132,
+        "width": 1332.2250000000001,
+        "height": 37.915032000000004
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [
+        "multiline_label_keyword"
+      ],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 28,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.23627,
+            "y": 0.170242,
+            "width": 0.740125,
+            "height": 0.014892
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "bcbd10a0-b60e-45eb-88fd-114326a572a7",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.231227,
+            "y": 0.155984,
+            "width": 0.153974,
+            "height": 0.029077
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9149,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "36d8963b-e008-4d53-9f07-a6ef1769c017",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 2,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.171665,
+            "width": 0.457778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8643,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695556,
+            "y": 0.171665,
+            "width": 0.280556,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8643,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.1426,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8244,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "5668ee79-2151-459d-a3fb-927c716a37a5",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_39",
+    "label": "To:",
+    "qualified_label": "JOB APPLICATION FORM › To:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694336,
+      "y": 0.617637,
+      "width": 0.281885,
+      "height": 0.014093
+    },
+    "label_bbox": {
+      "x": 0.539346,
+      "y": 0.616726,
+      "width": 0.02703,
+      "height": 0.011145
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694336,
+        "y": 0.617637,
+        "width": 0.281885,
+        "height": 0.014093
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1249.8048,
+        "y": 1572.503802,
+        "width": 507.393,
+        "height": 35.880778
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 12,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694336,
+            "y": 0.617637,
+            "width": 0.281885,
+            "height": 0.014093
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "782a717b-4b3e-42a2-ac86-28c0d14aef4a",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.617855,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8652,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.589183,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.825,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.64692,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7532,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.626785,
+            "width": 0.1,
+            "height": 0.06481
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.004
+        }
+      ],
+      "key_block_id": "1862db7d-2b77-458b-8bd2-2cf93dfe1a61",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_41",
+    "label": "To:",
+    "qualified_label": "JOB APPLICATION FORM › To:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694665,
+      "y": 0.808583,
+      "width": 0.282196,
+      "height": 0.013789
+    },
+    "label_bbox": {
+      "x": 0.539526,
+      "y": 0.807273,
+      "width": 0.026843,
+      "height": 0.010863
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694665,
+        "y": 0.808583,
+        "width": 0.282196,
+        "height": 0.013789
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1250.397,
+        "y": 2058.652318,
+        "width": 507.9528,
+        "height": 35.106794
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 7,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694665,
+            "y": 0.808583,
+            "width": 0.282196,
+            "height": 0.013789
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "5ebae436-a946-4e00-a95b-c441224cf4d2",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.80835,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8649,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.779678,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8253,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.814769,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0122
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.837022,
+            "width": 0.742778,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.6751,
+          "reasons": [
+            "visual_underline",
+            "below_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "5bb10c14-0bdc-4f44-8d30-09a545de7a2b",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_42",
+    "label": "From:",
+    "qualified_label": "JOB APPLICATION FORM › From:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.232166,
+      "y": 0.616461,
+      "width": 0.25093,
+      "height": 0.015353
+    },
+    "label_bbox": {
+      "x": 0.034797,
+      "y": 0.616848,
+      "width": 0.04762,
+      "height": 0.011008
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.232166,
+        "y": 0.616461,
+        "width": 0.25093,
+        "height": 0.015353
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 417.8988,
+        "y": 1569.509706,
+        "width": 451.674,
+        "height": 39.088738
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 21,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.232166,
+            "y": 0.616461,
+            "width": 0.25093,
+            "height": 0.015353
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "a513d886-7bde-41c1-9281-852ae6fe9732",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.503036,
+            "y": 0.603531,
+            "width": 0.476257,
+            "height": 0.027903
+          },
+          "anchor_type": "table_cell",
+          "score": 0.8942,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "dc433cf5-071c-4792-994f-137692ff1815",
+          "table_id": "50b50af1-e7ed-4664-85a0-44928c1129a0",
+          "row_index": 2,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.233333,
+            "y": 0.617855,
+            "width": 0.047222,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8654,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.281111,
+            "y": 0.617855,
+            "width": 0.201667,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8654,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.617855,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8654,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "6ae6e839-ace9-4221-997f-aa98e6cd9f2c",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_43",
+    "label": "Date of Birth:",
+    "qualified_label": "JOB APPLICATION FORM › Date of Birth:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.693353,
+      "y": 0.141004,
+      "width": 0.282733,
+      "height": 0.015312
+    },
+    "label_bbox": {
+      "x": 0.541123,
+      "y": 0.141271,
+      "width": 0.111436,
+      "height": 0.011078
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.693353,
+        "y": 0.141004,
+        "width": 0.282733,
+        "height": 0.015312
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1248.0354,
+        "y": 358.99618399999997,
+        "width": 508.9194,
+        "height": 38.984352
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 17,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.693353,
+            "y": 0.141004,
+            "width": 0.282733,
+            "height": 0.015312
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "d286e1a4-6c49-40b4-be78-03989caeacd5",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.692041,
+            "y": 0.127295,
+            "width": 0.284611,
+            "height": 0.028686
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9042,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "def018c7-f8c6-486e-9a3e-76f3ef6bf1dd",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 1,
+          "column_index": 7,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.1426,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8643,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695556,
+            "y": 0.171665,
+            "width": 0.280556,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.753,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.156717,
+            "width": 0.123889,
+            "height": 0.049095
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7458,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 13,
+          "visual_confidence": 0.776,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "449473a0-bd16-4648-a618-75f60632fafe",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_44",
+    "label": "Name:",
+    "qualified_label": "JOB APPLICATION FORM › Name:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.237222,
+      "y": 0.141027,
+      "width": 0.244621,
+      "height": 0.01542
+    },
+    "label_bbox": {
+      "x": 0.034608,
+      "y": 0.141576,
+      "width": 0.053747,
+      "height": 0.010862
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.237222,
+        "y": 0.141027,
+        "width": 0.244621,
+        "height": 0.01542
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 426.9996,
+        "y": 359.05474200000003,
+        "width": 440.31780000000003,
+        "height": 39.25932
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 26,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.141027,
+            "width": 0.244621,
+            "height": 0.01542
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "0ff84773-d486-4ab5-82aa-8ccc246a12f6",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.231228,
+            "y": 0.1273,
+            "width": 0.153974,
+            "height": 0.028685
+          },
+          "anchor_type": "table_cell",
+          "score": 0.9042,
+          "reasons": [
+            "table_label_cell_match",
+            "right_sibling_answer_cell"
+          ],
+          "source_id": "7a2ca362-e9cc-4e63-9ced-1d864adadf5e",
+          "table_id": "1093b560-d446-4e94-8867-0bcb98c44c75",
+          "row_index": 1,
+          "column_index": 2,
+          "continuation_cell_count": 0,
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.237222,
+            "y": 0.1426,
+            "width": 0.245,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8651,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.1426,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8651,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.09898,
+            "width": 0.11,
+            "height": 0.049095
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7674,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "right_of_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 13,
+          "visual_confidence": 0.776,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "07785626-65b2-4d74-9b79-c125db8f8dbb",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "anchored_field_45",
+    "label": "City / State:",
+    "qualified_label": "JOB APPLICATION FORM › City / State:",
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "value": "",
+    "field_type": "text",
+    "bbox": {
+      "x": 0.694395,
+      "y": 0.683635,
+      "width": 0.282698,
+      "height": 0.01482
+    },
+    "label_bbox": {
+      "x": 0.54109,
+      "y": 0.68306,
+      "width": 0.101546,
+      "height": 0.01411
+    },
+    "answer_region": {
+      "bbox": {
+        "x": 0.694395,
+        "y": 0.683635,
+        "width": 0.282698,
+        "height": 0.01482
+      },
+      "type": "value_block",
+      "confidence": 0.94
+    },
+    "page": 1,
+    "confidence": 0.94,
+    "candidate_score": 0.94,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1249.911,
+        "y": 1740.53471,
+        "width": 508.8564,
+        "height": 37.73172
+      }
+    ],
+    "source": "textract_anchor",
+    "render_border": true,
+    "anchoring": {
+      "anchor_type": "value_block",
+      "type_reasons": [],
+      "selection_reasons": [
+        "textract_key_value_relationship",
+        "value_block_geometry",
+        "directionally_plausible"
+      ],
+      "label_overlap_ratio": 0.0,
+      "candidate_count": 10,
+      "top_candidates": [
+        {
+          "bbox": {
+            "x": 0.694395,
+            "y": 0.683635,
+            "width": 0.282698,
+            "height": 0.01482
+          },
+          "anchor_type": "value_block",
+          "score": 0.94,
+          "reasons": [
+            "textract_key_value_relationship",
+            "value_block_geometry",
+            "directionally_plausible"
+          ],
+          "source_id": "d3da8958-ee6e-43bb-beac-d3b9cac0e7a9",
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.684627,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.8692,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.64692,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7872,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.695,
+            "y": 0.713299,
+            "width": 0.281111,
+            "height": 0.015149
+          },
+          "anchor_type": "underline",
+          "score": 0.7594,
+          "reasons": [
+            "visual_underline",
+            "right_of_label"
+          ],
+          "label_overlap_ratio": 0.0
+        },
+        {
+          "bbox": {
+            "x": 0.542222,
+            "y": 0.719718,
+            "width": 0.1,
+            "height": 0.06677
+          },
+          "anchor_type": "dotted_underline",
+          "score": 0.7364,
+          "reasons": [
+            "synthetic_dotted_underline",
+            "below_label",
+            "phase_f_detector"
+          ],
+          "source_type": "dotted",
+          "segment_count": 12,
+          "visual_confidence": 0.764,
+          "label_overlap_ratio": 0.0
+        }
+      ],
+      "key_block_id": "b111fefd-2cb7-4773-adcc-1ae84c9a9d21",
+      "value_block_ids": [
+        "34239242-27eb-43e9-a6f4-900f4e9b75fd"
+      ]
+    }
+  },
+  {
+    "field_id": "textract_checkbox_1",
+    "label": "Salary",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.412436,
+      "y": 0.287212,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.412436,
+        "y": 0.287212,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.9175
+    },
+    "page": 1,
+    "confidence": 0.9175,
+    "candidate_score": 0.9175,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 742.3847079277039,
+        "y": 731.242546916008,
+        "width": 21.978362649679184,
+        "height": 22.385814102366567
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Salary"
+  },
+  {
+    "field_id": "textract_checkbox_2",
+    "label": "Part time",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.412435,
+      "y": 0.3153,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.412435,
+        "y": 0.3153,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.9155
+    },
+    "page": 1,
+    "confidence": 0.9155,
+    "candidate_score": 0.9155,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 742.3835813999176,
+        "y": 802.7525548934937,
+        "width": 21.9783877953887,
+        "height": 22.385833071544766
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Part time"
+  },
+  {
+    "field_id": "textract_checkbox_3",
+    "label": "Seasonal",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.594854,
+      "y": 0.315299,
+      "width": 0.011722,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.594854,
+        "y": 0.315299,
+        "width": 0.011722,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.9082
+    },
+    "page": 1,
+    "confidence": 0.9082,
+    "candidate_score": 0.9082,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1070.7374095916748,
+        "y": 802.7513408660889,
+        "width": 21.09939604997635,
+        "height": 22.385980082675815
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Seasonal"
+  },
+  {
+    "field_id": "textract_checkbox_4",
+    "label": "No",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.631972,
+      "y": 0.395409,
+      "width": 0.011722,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.631972,
+        "y": 0.395409,
+        "width": 0.011722,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8809
+    },
+    "page": 1,
+    "confidence": 0.8809,
+    "candidate_score": 0.8809,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1137.54962682724,
+        "y": 1006.7124974727631,
+        "width": 21.09949830919504,
+        "height": 22.386101011186838
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › No"
+  },
+  {
+    "field_id": "textract_checkbox_5",
+    "label": "Hour",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.2498,
+      "y": 0.287213,
+      "width": 0.01221,
+      "height": 0.008792
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.2498,
+        "y": 0.287213,
+        "width": 0.01221,
+        "height": 0.008792
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8789
+    },
+    "page": 1,
+    "confidence": 0.8789,
+    "candidate_score": 0.8789,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 449.63956475257874,
+        "y": 731.244064450264,
+        "width": 21.978173218667507,
+        "height": 22.38568131811917
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Hour"
+  },
+  {
+    "field_id": "textract_checkbox_6",
+    "label": "Yes",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.494974,
+      "y": 0.395409,
+      "width": 0.011966,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.494974,
+        "y": 0.395409,
+        "width": 0.011966,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.873
+    },
+    "page": 1,
+    "confidence": 0.873,
+    "candidate_score": 0.873,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 890.9526944160461,
+        "y": 1006.7123457193375,
+        "width": 21.538956463336945,
+        "height": 22.38598719611764
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Yes"
+  },
+  {
+    "field_id": "textract_checkbox_7",
+    "label": "No",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.631972,
+      "y": 0.423741,
+      "width": 0.011722,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.631972,
+        "y": 0.423741,
+        "width": 0.011722,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8696
+    },
+    "page": 1,
+    "confidence": 0.8696,
+    "candidate_score": 0.8696,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1137.5489830970764,
+        "y": 1078.845453262329,
+        "width": 21.099523454904556,
+        "height": 22.386181630194187
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › No"
+  },
+  {
+    "field_id": "textract_checkbox_8",
+    "label": "Full time",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.250043,
+      "y": 0.3153,
+      "width": 0.01221,
+      "height": 0.008792
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.250043,
+        "y": 0.3153,
+        "width": 0.01221,
+        "height": 0.008792
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8604
+    },
+    "page": 1,
+    "confidence": 0.8604,
+    "candidate_score": 0.8604,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 450.0776767730713,
+        "y": 802.7536171674728,
+        "width": 21.978230215609074,
+        "height": 22.385700287297368
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Full time"
+  },
+  {
+    "field_id": "textract_checkbox_9",
+    "label": "No",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.370425,
+      "y": 0.64771,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.370425,
+        "y": 0.64771,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8413
+    },
+    "page": 1,
+    "confidence": 0.8413,
+    "candidate_score": 0.8413,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 666.7650818824768,
+        "y": 1649.0685104131699,
+        "width": 21.978642605245113,
+        "height": 22.386629777029157
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › No"
+  },
+  {
+    "field_id": "textract_checkbox_10",
+    "label": "Yes",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.494973,
+      "y": 0.423741,
+      "width": 0.011966,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.494973,
+        "y": 0.423741,
+        "width": 0.011966,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8398
+    },
+    "page": 1,
+    "confidence": 0.8398,
+    "candidate_score": 0.8398,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 890.9517288208008,
+        "y": 1078.8449980020523,
+        "width": 21.53898160904646,
+        "height": 22.386070186272264
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Yes"
+  },
+  {
+    "field_id": "textract_checkbox_11",
+    "label": "No",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.631482,
+      "y": 0.48065,
+      "width": 0.012699,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.631482,
+        "y": 0.48065,
+        "width": 0.012699,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8364
+    },
+    "page": 1,
+    "confidence": 0.8364,
+    "candidate_score": 0.8364,
+    "confidence_class": "high",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 1136.6684675216675,
+        "y": 1223.733781516552,
+        "width": 22.857922688126564,
+        "height": 22.386357095092535
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › No"
+  },
+  {
+    "field_id": "textract_checkbox_12",
+    "label": "No",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.370423,
+      "y": 0.742965,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.370423,
+        "y": 0.742965,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.814
+    },
+    "page": 1,
+    "confidence": 0.814,
+    "candidate_score": 0.814,
+    "confidence_class": "medium",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 666.7610049247742,
+        "y": 1891.587784409523,
+        "width": 21.97872642427683,
+        "height": 22.38691194355488
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › No"
+  },
+  {
+    "field_id": "textract_checkbox_13",
+    "label": "Yes",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.245882,
+      "y": 0.64722,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.245882,
+        "y": 0.64722,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8125
+    },
+    "page": 1,
+    "confidence": 0.8125,
+    "candidate_score": 0.8125,
+    "confidence_class": "medium",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 442.58803725242615,
+        "y": 1647.821856021881,
+        "width": 21.97852022945881,
+        "height": 22.386525446549058
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Yes"
+  },
+  {
+    "field_id": "textract_checkbox_14",
+    "label": "Yes",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.494972,
+      "y": 0.480649,
+      "width": 0.012455,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.494972,
+        "y": 0.480649,
+        "width": 0.012455,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.8076
+    },
+    "page": 1,
+    "confidence": 0.8076,
+    "candidate_score": 0.8076,
+    "confidence_class": "medium",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 890.9498512744904,
+        "y": 1223.7325674891472,
+        "width": 22.418197989463806,
+        "height": 22.386243280023336
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Yes"
+  },
+  {
+    "field_id": "textract_checkbox_15",
+    "label": "Yes",
+    "value": "[ ]",
+    "field_type": "checkbox",
+    "bbox": {
+      "x": 0.245879,
+      "y": 0.742963,
+      "width": 0.01221,
+      "height": 0.008793
+    },
+    "label_bbox": null,
+    "answer_region": {
+      "bbox": {
+        "x": 0.245879,
+        "y": 0.742963,
+        "width": 0.01221,
+        "height": 0.008793
+      },
+      "type": "checkbox_region",
+      "confidence": 0.7671
+    },
+    "page": 1,
+    "confidence": 0.7671,
+    "candidate_score": 0.7671,
+    "confidence_class": "medium",
+    "multiline_group_size": 1,
+    "field_bboxes": [
+      {
+        "x": 442.5830751657486,
+        "y": 1891.5836870670319,
+        "width": 21.97860572487116,
+        "height": 22.386809984222054
+      }
+    ],
+    "source": "textract_anchor",
+    "anchoring": {
+      "anchor_type": "checkbox_region",
+      "reasons": [
+        "selection_element_geometry",
+        "value_to_key_mapping"
+      ]
+    },
+    "section": {
+      "section_id": "section_1",
+      "title": "JOB APPLICATION FORM",
+      "type": "unknown",
+      "page": 1,
+      "confidence": 0.72
+    },
+    "qualified_label": "JOB APPLICATION FORM › Yes"
+  }
+]
