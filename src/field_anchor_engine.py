@@ -36,7 +36,7 @@ from src.field_sanitizer import (
 )
 from src.radio_grouper import apply_radio_grouping
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
-from src.table_fill import emit_table_input_cells, table_fill_enabled
+from src.table_fill import emit_signature_table_cells, emit_table_input_cells, table_fill_enabled
 from src.semantic_classifier import (
     apply_semantic_priors,
     build_semantic_diagnostics,
@@ -60,6 +60,18 @@ SIGNATURE_KEYWORDS = {
     "signature",
     "signed",
     "sign here",
+}
+
+# Labels that prompt a free-text write-in even when Textract reports a "[ ]"
+# value (a checkbox sits next to them, but the label itself owns a fill-in line,
+# e.g. "Any other please specify ........"). Such a label must NOT be classified
+# as a pure checkbox, or its write-in region is lost to token-checkbox dedup.
+WRITE_IN_CUES = {
+    "please specify",
+    "specify",
+    "give details",
+    "if yes",
+    "if other",
 }
 
 MULTILINE_KEYWORDS = {
@@ -699,7 +711,7 @@ def _classify_field(label: str, value: str, answer_box: dict[str, float] | None,
     if _contains_any(lower_label, SIGNATURE_KEYWORDS):
         reasons.append("signature_keyword")
         return "signature", reasons
-    if lower_value in CHECKBOX_VALUE_TOKENS:
+    if lower_value in CHECKBOX_VALUE_TOKENS and not _contains_any(lower_label, WRITE_IN_CUES):
         reasons.append("checkbox_value")
         return "checkbox", reasons
 
@@ -1491,7 +1503,14 @@ def _select_answer_region(
 
     candidates: list[dict[str, Any]] = []
     candidates.extend(_table_cell_candidates(label, page, label_box, cells, preliminary_multiline, section_band))
-    candidates.extend(_value_block_candidates(field_item, blocks_by_id, page_by_id, label_box, page))
+    # A write-in label whose Textract value is a checkbox token ("[ ]") has its
+    # value block sitting on the adjacent checkbox glyph, not on the write-in
+    # line. Skip the value block so the field anchors to the real fill line
+    # (usually a dotted leader just below); the checkbox is still emitted from
+    # its own SELECTION_ELEMENT.
+    is_writein_checkbox = value.strip().lower() in CHECKBOX_VALUE_TOKENS and _contains_any(label.lower(), WRITE_IN_CUES)
+    if not is_writein_checkbox:
+        candidates.extend(_value_block_candidates(field_item, blocks_by_id, page_by_id, label_box, page))
     candidates.extend(_underline_candidates(label_box, page, visual_features, metrics))
     candidates.extend(_synthetic_underline_candidates(label_box, page, visual_features, metrics))
     candidates.extend(_rectangle_candidates(label_box, page, visual_features, metrics))
@@ -1547,8 +1566,49 @@ def _select_answer_region(
     # semantically-adjusted scores (the assignment engine itself is unchanged).
     if semantic_field is not None:
         candidates = apply_semantic_priors(candidates, semantic_field)
+
+    # Write-in checkbox labels ("Any other please specify ....") own a fill line
+    # *below* the label, not the short underlines of neighbouring checkboxes on
+    # the same row. Prefer the nearest wide answer line below the label.
+    if is_writein_checkbox:
+        label_bottom = _box_bottom(label_box)
+        below = [
+            c
+            for c in candidates
+            if _box_center(c["bbox"])[1] > label_bottom
+            and float(c["bbox"]["width"]) >= metrics["text_width"] * 1.5
+        ]
+        if below:
+            selected = min(below, key=lambda c: _box_center(c["bbox"])[1])
+            # A "specify" write-in is a single line; the dotted detector often
+            # returns a tall region. Clamp to one line aligned to the leader top.
+            sb = dict(selected["bbox"])
+            single = metrics["line_height"] * 1.6
+            if float(sb["height"]) > single:
+                sb = _normalize_box({"x": sb["x"], "y": sb["y"], "width": sb["width"], "height": single}) or sb
+                selected = {**selected, "bbox": sb}
+            field_type, type_reasons = _finalize_field_type(label, value, selected, metrics)
+            return selected, field_type, type_reasons, sorted(candidates, key=lambda item: item.get("score", 0.0), reverse=True)
+
     selected = max(candidates, key=lambda item: float(item.get("score", 0.0)))
     field_type, type_reasons = _finalize_field_type(label, value, selected, metrics)
+
+    # Multiline value regions that sit *below* their label wrap their later lines
+    # back to the label's left margin (e.g. a 2-line address where line 1 starts
+    # after "Present Address :" but line 2 starts at the margin). Textract's value
+    # block only covers the indented first line; widen it left to the label so the
+    # wrapped lines are inside the widget. Guarded to the below-label case so a
+    # same-row answer is never stretched under its label.
+    if field_type == "multiline" and selected.get("anchor_type") == "value_block":
+        sb = selected["bbox"]
+        tall_enough = float(sb["height"]) >= metrics["line_height"] * 3.0
+        if tall_enough and float(sb["x"]) > float(label_box["x"]) + metrics["x_gap"]:
+            widened = _normalize_box(
+                {"x": float(label_box["x"]), "y": sb["y"], "width": _box_right(sb) - float(label_box["x"]), "height": sb["height"]}
+            )
+            if widened:
+                selected = {**selected, "bbox": widened, "reasons": list(selected.get("reasons", [])) + ["multiline_wrap_widened"]}
+
     return selected, field_type, type_reasons, sorted(candidates, key=lambda item: item.get("score", 0.0), reverse=True)
 
 
@@ -2287,6 +2347,58 @@ def build_anchored_mappings(
         table_fill_count = len(table_cell_mappings)
         if table_fill_count:
             logger.info("[anchor] table-fill emitted %d empty input-cell widget(s)", table_fill_count)
+
+        # Signature-style tables (every cell = label + dotted fill line, leaders
+        # crossing cell borders) are not input grids and Textract mis-links their
+        # key/values. Emit one inline answer per cell (after the label, to the
+        # next label) and suppress the unreliable KEY fields inside the table.
+        sig_mappings, sig_suppression = emit_signature_table_cells(
+            parsed.get("tables", []) or [],
+            text_boxes=text_boxes,
+            visual_features=visual_features,
+            section_index=section_index,
+            page_px=_page_px,
+        )
+        if sig_suppression:
+            def _in_sig_table(mapping: dict[str, Any]) -> bool:
+                if mapping.get("field_type") in {"checkbox", "photo"}:
+                    return False
+                box = mapping.get("label_bbox") or mapping.get("bbox")
+                if not isinstance(box, dict):
+                    return False
+                cx = float(box["x"]) + float(box["width"]) / 2.0
+                cy = float(box["y"]) + float(box["height"]) / 2.0
+                page = int(mapping.get("page") or 1)
+                for sp, sb in sig_suppression:
+                    if sp == page and sb["x"] <= cx <= _box_right(sb) and sb["y"] <= cy <= _box_bottom(sb):
+                        return True
+                return False
+
+            suppressed_ids = {str(m.get("field_id")) for m in mappings if _in_sig_table(m)}
+            if suppressed_ids:
+                mappings = [m for m in mappings if str(m.get("field_id")) not in suppressed_ids]
+                anchor_records = [r for r in anchor_records if str(r.get("field_id")) not in suppressed_ids]
+                logger.info("[anchor] signature-table suppressed %d KEY field(s)", len(suppressed_ids))
+        for cell_mapping in sig_mappings:
+            mappings.append(cell_mapping)
+            anchor_records.append(
+                {
+                    "field_id": cell_mapping["field_id"],
+                    "label": cell_mapping["label"],
+                    "field_type": cell_mapping["field_type"],
+                    "page": cell_mapping["page"],
+                    "section_id": cell_mapping["section"].get("section_id"),
+                    "section_title": cell_mapping["section"].get("title"),
+                    "label_bbox": None,
+                    "answer_bbox": cell_mapping["bbox"],
+                    "anchor_type": "table_cell",
+                    "confidence": cell_mapping["confidence"],
+                    "label_overlap_ratio": 0.0,
+                    "candidate_count": 1,
+                }
+            )
+        if sig_mappings:
+            logger.info("[anchor] signature-table emitted %d inline answer cell(s)", len(sig_mappings))
 
     # Field hygiene (rule 3): drop fields whose answer region duplicates a
     # stronger field's region (e.g. a printed sub-caption resolving onto the same

@@ -18,9 +18,14 @@ fully-populated data tables produce nothing — and is ON by default with a
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Callable
 
 from src.section_detector import SectionIndex, qualify_label, section_summary
+
+# A cell whose text carries a selection glyph is a checkbox/option cell, not a
+# write-in label — used to keep the signature-table emitter off checkbox matrices.
+_SELECTION_TOKEN_RE = re.compile(r"\[\s*[xX✓]?\s*\]|[☐□■●○✓]")
 
 # A column counts as a label/header column when at least this fraction of its
 # populated cells carry text; as a data (input) column when at most the
@@ -93,6 +98,10 @@ def _confidence_class(score: float) -> str:
     if score >= 0.42:
         return "low"
     return "unresolved"
+
+
+def _cxy(b: dict[str, float]) -> tuple[float, float]:
+    return float(b["x"]) + float(b["width"]) / 2.0, float(b["y"]) + float(b["height"]) / 2.0
 
 
 def emit_table_input_cells(
@@ -253,3 +262,162 @@ def emit_table_input_cells(
                 next_index += 1
 
     return mappings
+
+
+# Minimum trailing-space width (page fraction) for a cell to be considered as
+# carrying an inline write-in answer after its label.
+SIGNATURE_MIN_WIDTH = 0.04
+
+
+def emit_signature_table_cells(
+    tables: list[dict[str, Any]],
+    *,
+    text_boxes: list[dict[str, Any]],
+    visual_features: dict[str, Any],
+    section_index: SectionIndex,
+    page_px: Callable[[int], tuple[int, int]],
+) -> tuple[list[dict[str, Any]], list[tuple[int, dict[str, float]]]]:
+    """Emit inline answer regions for a signature-style table and report the
+    table regions whose Textract KEY fields should be suppressed.
+
+    A signature table (e.g. ``Sign. Guardian ...... | Sign. Patient ......`` over
+    ``Name ...... | Relation with Patient ......``) has *every* cell populated
+    with a label followed by a dotted fill line — so it is neither an input grid
+    (it has no empty cells) nor reliably handled by Textract's key/value linking
+    (the value blocks land in the wrong column). For each such table we read the
+    label text in each cell and emit the answer region as the gap after the
+    label, extending to the next label on the row (the dotted leaders cross cell
+    borders) or the table's right edge. The returned table boxes let the caller
+    drop the unreliable KEY fields that fall inside them.
+
+    Returns ``(mappings, suppression_boxes)``; both empty when the feature is off
+    or no table qualifies.
+    """
+    if not table_fill_enabled():
+        return [], []
+
+    leaders = list(visual_features.get("synthetic_underlines") or [])
+    mappings: list[dict[str, Any]] = []
+    suppression: list[tuple[int, dict[str, float]]] = []
+
+    for t_idx, table in enumerate(tables or [], start=1):
+        page = int(table.get("page") or 1)
+        cells = []
+        for cell in table.get("cells", []) or []:
+            box = _norm_box((cell.get("geometry") or {}).get("bounding_box"))
+            if box:
+                cells.append({"text": str(cell.get("text") or "").strip(), "bbox": box})
+        if len(cells) < 2:
+            continue
+        # All-populated only: an input grid (with empty data cells) is handled
+        # elsewhere; a signature table has a label in every cell.
+        if any(not c["text"] for c in cells):
+            continue
+        # Skip checkbox / option matrices: their cells carry selection glyphs
+        # ("[ ] PARK RANGER"), not write-in labels.
+        if any(_SELECTION_TOKEN_RE.search(c["text"]) for c in cells):
+            continue
+
+        table_box = {
+            "x": min(c["bbox"]["x"] for c in cells),
+            "y": min(c["bbox"]["y"] for c in cells),
+            "width": max(_right(c["bbox"]) for c in cells) - min(c["bbox"]["x"] for c in cells),
+            "height": max(_bottom(c["bbox"]) for c in cells) - min(c["bbox"]["y"] for c in cells),
+        }
+        # Require a dotted/broken fill leader running through the table — the
+        # signal that these cells are write-in lines, not a data table.
+        row_leaders = [
+            lf
+            for lf in leaders
+            if int(lf.get("page") or 1) == page and _intersection(lf["bbox"], table_box) > 0
+        ]
+        if not row_leaders:
+            continue
+
+        table_right = _right(table_box)
+        page_words = [
+            it
+            for it in text_boxes
+            if int(it.get("page") or 1) == page and isinstance(it.get("bbox"), dict)
+        ]
+
+        for cell in cells:
+            cbox = cell["bbox"]
+            ccx, ccy = _cxy(cbox)
+            row_tol = max(cbox["height"], 0.012)
+            # Words physically inside this cell give the label's right extent.
+            inside = [
+                w for w in page_words
+                if cbox["x"] - 0.005 <= _cxy(w["bbox"])[0] <= _right(cbox) + 0.005
+                and abs(_cxy(w["bbox"])[1] - ccy) <= row_tol
+            ]
+            if not inside:
+                continue
+            label_right = max(_right(w["bbox"]) for w in inside)
+            gap = 0.008
+            start_x = label_right + gap
+            # Extend to the next label/text on the row (leaders cross cells), or
+            # to the table's right edge.
+            next_xs = [
+                float(w["bbox"]["x"])
+                for w in page_words
+                if abs(_cxy(w["bbox"])[1] - ccy) <= row_tol and float(w["bbox"]["x"]) > start_x
+            ]
+            end_x = min([table_right] + next_xs) - gap
+            width = end_x - start_x
+            if width < SIGNATURE_MIN_WIDTH:
+                continue
+            # Align vertically to the nearest leader in this row, else the cell.
+            row_lf = [lf for lf in row_leaders if abs(_cxy(lf["bbox"])[1] - ccy) <= row_tol]
+            ly = _cxy(row_lf[0]["bbox"])[1] if row_lf else ccy
+            height = max(cbox["height"] * 0.5, 0.014)
+            y = max(0.0, ly - height * 0.7)
+            box = _norm_box({"x": start_x, "y": y, "width": width, "height": height})
+            if not box:
+                continue
+            label = cell["text"]
+            wtype = "signature" if "sign" in label.lower() else "text"
+            owner = section_index.owner(page, float(box["y"]))
+            px_w, px_h = page_px(page)
+            mappings.append(
+                {
+                    "field_id": f"sigtable_{t_idx}_{int(round(ccy * 1000))}_{int(round(ccx * 1000))}",
+                    "label": label,
+                    "qualified_label": qualify_label(owner, label),
+                    "section": section_summary(owner),
+                    "value": "",
+                    "field_type": wtype,
+                    "bbox": dict(box),
+                    "label_bbox": None,
+                    "answer_region": {"bbox": dict(box), "type": "table_inline", "confidence": 0.88},
+                    "page": page,
+                    "confidence": 0.88,
+                    "candidate_score": 0.88,
+                    "confidence_class": _confidence_class(0.88),
+                    "multiline_group_size": 1,
+                    "field_bboxes": [
+                        {
+                            "x": float(box["x"]) * px_w,
+                            "y": float(box["y"]) * px_h,
+                            "width": float(box["width"]) * px_w,
+                            "height": float(box["height"]) * px_h,
+                        }
+                    ],
+                    "source": "textract_table_fill",
+                    "render_border": False,
+                    "anchoring": {
+                        "anchor_type": "table_cell",
+                        "type_reasons": ["signature_table_inline_answer"],
+                        "selection_reasons": ["table_fill_signature_cell"],
+                        "label_overlap_ratio": 0.0,
+                        "candidate_count": 1,
+                        "top_candidates": [],
+                        "key_block_id": None,
+                        "value_block_ids": [],
+                        "table_id": table.get("table_block_id"),
+                    },
+                }
+            )
+        suppression.append((page, table_box))
+
+    return mappings, suppression

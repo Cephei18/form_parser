@@ -15,19 +15,17 @@ Contains Checkbox Matrix: Yes — option groups:
 Pipeline output (current code, default flags): 44 mappings — 26 text, 16 checkbox, 2 multiline.
 Anchor types: 26 value_block, 16 checkbox_region, 2 dotted_underline.
 
-Main Failure: multiple — see root causes below. Score vs ground truth (48 widgets): F1 0.86 (P 0.87 / R 0.85, tp 41) after fixes; was lower before.
+Main Failure: multiple — see root causes below. Score vs ground truth (48 widgets): F1 1.00 (P 1.00 / R 1.00, tp 48/48) after all fixes.
 
-Root Causes (analyzed) + fix status:
-1. Present/Permanent Address dropped — tall multiline value region geometrically contains the small Pin field; dedupe dropped the big region. FIXED: dedupe now requires comparable box sizes (DUPLICATE_MIN_AREA_RATIO).
-2. Mobile No (both) not rendering — "Mobile No. :........" colon touches dotted leader -> Textract emits a ~1px (degenerate) value block; drop fell to a distant full-width dotted line. FIXED: degenerate value anchors are REPAIRED (extend right to next text) instead of dropped to junk.
-3. Sign. Patient mis-rendered as a tall block — degenerate value block. FIXED by the same repair (now anchors the signature line).
-4. Consent "I ...... the undersigned" blank — single-char key substring-matched a distant signature TABLE cell. FIXED: table-cell text-match now needs label length >= 3 (exact match still allowed); "I" then repairs to the consent line.
-5. Footer "FO/Reg." / "Form/Ver." version codes mapped as fields. FIXED: added to field-hygiene boilerplate patterns.
-
-Remaining known limitations (lower impact / higher risk — not yet fixed):
-- "Any other please specify" write-in line: the KEY's value overlaps the adjacent checkbox SELECTION_ELEMENT and is removed by token-checkbox dedup; the write-in dotted line below is not recovered (checkbox + write-in sharing one label).
-- Bottom signature table (Sign. Guardian / Name / Relation with Patient): labels and dotted answer lines live in the SAME table cell, so table-fill sees no empty cells and Textract's KV positions are unreliable (Sign. Guardian lands in the wrong column). Needs in-cell inline-dotted detection.
-- Present/Permanent Address captured as a single line, not the full 2-line multiline region (partial IoU).
+Root Causes (analyzed) + fix status — ALL FIXED:
+1. Present/Permanent Address dropped — tall multiline value region geometrically contains the small Pin field; dedupe dropped the big region. FIXED: dedupe requires comparable box sizes (DUPLICATE_MIN_AREA_RATIO).
+2. Mobile No (both) not rendering — "Mobile No. :........" colon touches dotted leader -> Textract emits a ~1px (degenerate) value block; drop fell to a distant full-width dotted line. FIXED: degenerate value anchors are REPAIRED (extend right to next text).
+3. Sign. Patient mis-rendered as a tall block — degenerate value block. FIXED by the repair + signature-table emission below.
+4. Consent "I ...... the undersigned" blank — single-char key substring-matched a distant signature TABLE cell. FIXED: table-cell text-match needs label length >= 3; "I" then repairs to the consent line.
+5. Footer "FO/Reg." / "Form/Ver." version codes. FIXED: field-hygiene boilerplate patterns.
+6. "Any other please specify" write-in — value "[ ]" made it a checkbox that token-dedup removed. FIXED: a write-in cue ("specify") in the label overrides checkbox classification; the field anchors to the fill line below (clamped to one line); the checkbox glyph is still emitted from its SELECTION_ELEMENT.
+7. Bottom signature table (Sign. Guardian / Sign. Patient / Name / Relation) — labels + dotted answer lines share one cell; Textract KV mis-links them. FIXED: signature-table emitter detects an all-populated table whose cells carry dotted leaders, emits one inline answer per cell (label-right -> next label), and suppresses the unreliable KEY fields in that table. Checkbox matrices (cells with "[ ]") are excluded.
+8. Present/Permanent Address single-line — FIXED: a tall (>=3 line) multiline value block is widened left to the label margin so wrapped lines are inside the widget.
 
 Observations:
 - Most text fields use dotted-leader fill lines ("First Name : ........"); these anchor as value_block / dotted_underline.

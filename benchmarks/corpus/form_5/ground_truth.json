@@ -4,7 +4,9 @@
   "doc_class": "healthcare",
   "source": "Paras Health - Registration Form (Ver 2.0/April'23)",
   "page_count": 1,
-  "page_types": { "1": "fillable" },
+  "page_types": {
+    "1": "fillable"
+  },
   "failure_modes": [
     "dotted_leader_no_gap_degenerate_value",
     "oversized_multiline_region_dedupe",
@@ -13,68 +15,782 @@
     "non_fillable_note_footer"
   ],
   "widgets": [
-    { "widget_id": "date", "page": 1, "type": "date", "label": "Date", "bbox": { "x": 0.790, "y": 0.090, "width": 0.142, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "first_name", "page": 1, "type": "text", "label": "First Name", "bbox": { "x": 0.165, "y": 0.149, "width": 0.307, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "middle_name", "page": 1, "type": "text", "label": "Middle Name", "bbox": { "x": 0.616, "y": 0.149, "width": 0.313, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "last_name", "page": 1, "type": "text", "label": "Last Name", "bbox": { "x": 0.164, "y": 0.178, "width": 0.307, "height": 0.015 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "so_do_wo", "page": 1, "type": "text", "label": "S/o, D/o, W/o", "bbox": { "x": 0.620, "y": 0.178, "width": 0.308, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "date_of_birth", "page": 1, "type": "date", "label": "Date of Birth", "bbox": { "x": 0.177, "y": 0.206, "width": 0.295, "height": 0.015 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "age", "page": 1, "type": "text", "label": "Age", "bbox": { "x": 0.113, "y": 0.232, "width": 0.087, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "sex_male", "page": 1, "type": "checkbox", "label": "Sex: Male", "bbox": { "x": 0.305, "y": 0.230, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "sex_female", "page": 1, "type": "checkbox", "label": "Sex: Female", "bbox": { "x": 0.435, "y": 0.230, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "marital_single", "page": 1, "type": "checkbox", "label": "Marital Status: Single", "bbox": { "x": 0.303, "y": 0.260, "width": 0.047, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "marital_married", "page": 1, "type": "checkbox", "label": "Marital Status: Married", "bbox": { "x": 0.436, "y": 0.260, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "marital_divorced", "page": 1, "type": "checkbox", "label": "Marital Status: Divorced", "bbox": { "x": 0.581, "y": 0.260, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "marital_widowed", "page": 1, "type": "checkbox", "label": "Marital Status: Widowed", "bbox": { "x": 0.734, "y": 0.261, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "occupation", "page": 1, "type": "text", "label": "Occupation", "bbox": { "x": 0.168, "y": 0.290, "width": 0.303, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "religion", "page": 1, "type": "text", "label": "Religion", "bbox": { "x": 0.575, "y": 0.290, "width": 0.326, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "present_address", "page": 1, "type": "multiline", "label": "Present Address", "bbox": { "x": 0.073, "y": 0.305, "width": 0.400, "height": 0.060 }, "section_path": ["Registration Form"], "cell_count": 2 },
-    { "widget_id": "permanent_address", "page": 1, "type": "multiline", "label": "Permanent Address", "bbox": { "x": 0.503, "y": 0.305, "width": 0.400, "height": 0.060 }, "section_path": ["Registration Form"], "cell_count": 2 },
-
-    { "widget_id": "pin_left", "page": 1, "type": "text", "label": "Pin (Present Address)", "bbox": { "x": 0.232, "y": 0.375, "width": 0.240, "height": 0.014 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "pin_right", "page": 1, "type": "text", "label": "Pin (Permanent Address)", "bbox": { "x": 0.664, "y": 0.374, "width": 0.237, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "mobile_left", "page": 1, "type": "text", "label": "Mobile No. (Present Address)", "bbox": { "x": 0.158, "y": 0.404, "width": 0.120, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "alternate_left", "page": 1, "type": "text", "label": "Alternate No (Present Address)", "bbox": { "x": 0.382, "y": 0.404, "width": 0.086, "height": 0.014 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "mobile_right", "page": 1, "type": "text", "label": "Mobile No. (Permanent Address)", "bbox": { "x": 0.590, "y": 0.404, "width": 0.120, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "alternate_right", "page": 1, "type": "text", "label": "Alternate No (Permanent Address)", "bbox": { "x": 0.813, "y": 0.403, "width": 0.087, "height": 0.015 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "email_left", "page": 1, "type": "text", "label": "Email (Present Address)", "bbox": { "x": 0.123, "y": 0.429, "width": 0.345, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "email_right", "page": 1, "type": "text", "label": "Email (Permanent Address)", "bbox": { "x": 0.554, "y": 0.430, "width": 0.346, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "emergency_contact_left", "page": 1, "type": "text", "label": "Incase of Emergency please contact (left)", "bbox": { "x": 0.337, "y": 0.459, "width": 0.146, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "emergency_contact_right", "page": 1, "type": "text", "label": "Incase of Emergency please contact (right)", "bbox": { "x": 0.767, "y": 0.459, "width": 0.138, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "emergency_name_left", "page": 1, "type": "text", "label": "Name (Emergency, left)", "bbox": { "x": 0.126, "y": 0.485, "width": 0.347, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "emergency_name_right", "page": 1, "type": "text", "label": "Name (Emergency, right)", "bbox": { "x": 0.556, "y": 0.486, "width": 0.347, "height": 0.015 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "relationship_left", "page": 1, "type": "text", "label": "Relationship with Patient (left)", "bbox": { "x": 0.256, "y": 0.513, "width": 0.213, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "relationship_right", "page": 1, "type": "text", "label": "Relationship with Patient (right)", "bbox": { "x": 0.685, "y": 0.514, "width": 0.218, "height": 0.017 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "consult_dr", "page": 1, "type": "text", "label": "I want to consult Dr.", "bbox": { "x": 0.219, "y": 0.541, "width": 0.243, "height": 0.015 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "ref_radio", "page": 1, "type": "checkbox", "label": "Radio", "bbox": { "x": 0.067, "y": 0.599, "width": 0.045, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_friend", "page": 1, "type": "checkbox", "label": "Friend / Relative", "bbox": { "x": 0.244, "y": 0.600, "width": 0.046, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_internet", "page": 1, "type": "checkbox", "label": "Internet (Google/Facebook)", "bbox": { "x": 0.474, "y": 0.600, "width": 0.045, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_doctor", "page": 1, "type": "checkbox", "label": "My Doctor", "bbox": { "x": 0.066, "y": 0.638, "width": 0.046, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_hoarding", "page": 1, "type": "checkbox", "label": "Hoarding / Banner", "bbox": { "x": 0.243, "y": 0.638, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_newspaper", "page": 1, "type": "checkbox", "label": "Newspaper", "bbox": { "x": 0.473, "y": 0.639, "width": 0.045, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_flyer", "page": 1, "type": "checkbox", "label": "Flyer / Leaflet", "bbox": { "x": 0.646, "y": 0.639, "width": 0.046, "height": 0.021 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_other_checkbox", "page": 1, "type": "checkbox", "label": "Any other (please specify)", "bbox": { "x": 0.066, "y": 0.678, "width": 0.046, "height": 0.022 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-    { "widget_id": "ref_other_specify", "page": 1, "type": "text", "label": "Any other please specify (write-in)", "bbox": { "x": 0.073, "y": 0.690, "width": 0.840, "height": 0.016 }, "section_path": ["Registration Form", "I came to know about Paras Hospital from"], "cell_count": 1 },
-
-    { "widget_id": "consent_name", "page": 1, "type": "text", "label": "Consent - undersigned name", "bbox": { "x": 0.085, "y": 0.790, "width": 0.270, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "consent_sms", "page": 1, "type": "checkbox", "label": "I wish to get healthcare information through SMS", "bbox": { "x": 0.481, "y": 0.816, "width": 0.046, "height": 0.021 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "consent_email", "page": 1, "type": "checkbox", "label": "& / or E-mail", "bbox": { "x": 0.660, "y": 0.817, "width": 0.046, "height": 0.021 }, "section_path": ["Registration Form"], "cell_count": 1 },
-
-    { "widget_id": "sign_guardian", "page": 1, "type": "signature", "label": "Sign. Guardian", "bbox": { "x": 0.210, "y": 0.860, "width": 0.090, "height": 0.018 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "sign_patient", "page": 1, "type": "signature", "label": "Sign. Patient", "bbox": { "x": 0.510, "y": 0.860, "width": 0.390, "height": 0.018 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "bottom_name", "page": 1, "type": "text", "label": "Name (signature block)", "bbox": { "x": 0.210, "y": 0.892, "width": 0.280, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 },
-    { "widget_id": "bottom_relation", "page": 1, "type": "text", "label": "Relation with Patient (signature block)", "bbox": { "x": 0.620, "y": 0.892, "width": 0.285, "height": 0.016 }, "section_path": ["Registration Form"], "cell_count": 1 }
+    {
+      "widget_id": "date",
+      "page": 1,
+      "type": "date",
+      "label": "Date",
+      "bbox": {
+        "x": 0.79,
+        "y": 0.09,
+        "width": 0.142,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "first_name",
+      "page": 1,
+      "type": "text",
+      "label": "First Name",
+      "bbox": {
+        "x": 0.165,
+        "y": 0.149,
+        "width": 0.307,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "middle_name",
+      "page": 1,
+      "type": "text",
+      "label": "Middle Name",
+      "bbox": {
+        "x": 0.616,
+        "y": 0.149,
+        "width": 0.313,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "last_name",
+      "page": 1,
+      "type": "text",
+      "label": "Last Name",
+      "bbox": {
+        "x": 0.164,
+        "y": 0.178,
+        "width": 0.307,
+        "height": 0.015
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "so_do_wo",
+      "page": 1,
+      "type": "text",
+      "label": "S/o, D/o, W/o",
+      "bbox": {
+        "x": 0.62,
+        "y": 0.178,
+        "width": 0.308,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "date_of_birth",
+      "page": 1,
+      "type": "date",
+      "label": "Date of Birth",
+      "bbox": {
+        "x": 0.177,
+        "y": 0.206,
+        "width": 0.295,
+        "height": 0.015
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "age",
+      "page": 1,
+      "type": "text",
+      "label": "Age",
+      "bbox": {
+        "x": 0.113,
+        "y": 0.232,
+        "width": 0.087,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "sex_male",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Sex: Male",
+      "bbox": {
+        "x": 0.305,
+        "y": 0.23,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "sex_female",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Sex: Female",
+      "bbox": {
+        "x": 0.435,
+        "y": 0.23,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "marital_single",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Marital Status: Single",
+      "bbox": {
+        "x": 0.303,
+        "y": 0.26,
+        "width": 0.047,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "marital_married",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Marital Status: Married",
+      "bbox": {
+        "x": 0.436,
+        "y": 0.26,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "marital_divorced",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Marital Status: Divorced",
+      "bbox": {
+        "x": 0.581,
+        "y": 0.26,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "marital_widowed",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Marital Status: Widowed",
+      "bbox": {
+        "x": 0.734,
+        "y": 0.261,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "occupation",
+      "page": 1,
+      "type": "text",
+      "label": "Occupation",
+      "bbox": {
+        "x": 0.168,
+        "y": 0.29,
+        "width": 0.303,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "religion",
+      "page": 1,
+      "type": "text",
+      "label": "Religion",
+      "bbox": {
+        "x": 0.575,
+        "y": 0.29,
+        "width": 0.326,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "present_address",
+      "page": 1,
+      "type": "multiline",
+      "label": "Present Address",
+      "bbox": {
+        "x": 0.073,
+        "y": 0.305,
+        "width": 0.4,
+        "height": 0.06
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 2
+    },
+    {
+      "widget_id": "permanent_address",
+      "page": 1,
+      "type": "multiline",
+      "label": "Permanent Address",
+      "bbox": {
+        "x": 0.502,
+        "y": 0.32,
+        "width": 0.4,
+        "height": 0.07
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 2
+    },
+    {
+      "widget_id": "pin_left",
+      "page": 1,
+      "type": "text",
+      "label": "Pin (Present Address)",
+      "bbox": {
+        "x": 0.232,
+        "y": 0.375,
+        "width": 0.24,
+        "height": 0.014
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "pin_right",
+      "page": 1,
+      "type": "text",
+      "label": "Pin (Permanent Address)",
+      "bbox": {
+        "x": 0.664,
+        "y": 0.374,
+        "width": 0.237,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "mobile_left",
+      "page": 1,
+      "type": "text",
+      "label": "Mobile No. (Present Address)",
+      "bbox": {
+        "x": 0.158,
+        "y": 0.404,
+        "width": 0.12,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "alternate_left",
+      "page": 1,
+      "type": "text",
+      "label": "Alternate No (Present Address)",
+      "bbox": {
+        "x": 0.382,
+        "y": 0.404,
+        "width": 0.086,
+        "height": 0.014
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "mobile_right",
+      "page": 1,
+      "type": "text",
+      "label": "Mobile No. (Permanent Address)",
+      "bbox": {
+        "x": 0.59,
+        "y": 0.404,
+        "width": 0.12,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "alternate_right",
+      "page": 1,
+      "type": "text",
+      "label": "Alternate No (Permanent Address)",
+      "bbox": {
+        "x": 0.813,
+        "y": 0.403,
+        "width": 0.087,
+        "height": 0.015
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "email_left",
+      "page": 1,
+      "type": "text",
+      "label": "Email (Present Address)",
+      "bbox": {
+        "x": 0.123,
+        "y": 0.429,
+        "width": 0.345,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "email_right",
+      "page": 1,
+      "type": "text",
+      "label": "Email (Permanent Address)",
+      "bbox": {
+        "x": 0.554,
+        "y": 0.43,
+        "width": 0.346,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "emergency_contact_left",
+      "page": 1,
+      "type": "text",
+      "label": "Incase of Emergency please contact (left)",
+      "bbox": {
+        "x": 0.337,
+        "y": 0.459,
+        "width": 0.146,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "emergency_contact_right",
+      "page": 1,
+      "type": "text",
+      "label": "Incase of Emergency please contact (right)",
+      "bbox": {
+        "x": 0.767,
+        "y": 0.459,
+        "width": 0.138,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "emergency_name_left",
+      "page": 1,
+      "type": "text",
+      "label": "Name (Emergency, left)",
+      "bbox": {
+        "x": 0.126,
+        "y": 0.485,
+        "width": 0.347,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "emergency_name_right",
+      "page": 1,
+      "type": "text",
+      "label": "Name (Emergency, right)",
+      "bbox": {
+        "x": 0.556,
+        "y": 0.486,
+        "width": 0.347,
+        "height": 0.015
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "relationship_left",
+      "page": 1,
+      "type": "text",
+      "label": "Relationship with Patient (left)",
+      "bbox": {
+        "x": 0.256,
+        "y": 0.513,
+        "width": 0.213,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "relationship_right",
+      "page": 1,
+      "type": "text",
+      "label": "Relationship with Patient (right)",
+      "bbox": {
+        "x": 0.685,
+        "y": 0.514,
+        "width": 0.218,
+        "height": 0.017
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "consult_dr",
+      "page": 1,
+      "type": "text",
+      "label": "I want to consult Dr.",
+      "bbox": {
+        "x": 0.219,
+        "y": 0.541,
+        "width": 0.243,
+        "height": 0.015
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_radio",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Radio",
+      "bbox": {
+        "x": 0.067,
+        "y": 0.599,
+        "width": 0.045,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_friend",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Friend / Relative",
+      "bbox": {
+        "x": 0.244,
+        "y": 0.6,
+        "width": 0.046,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_internet",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Internet (Google/Facebook)",
+      "bbox": {
+        "x": 0.474,
+        "y": 0.6,
+        "width": 0.045,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_doctor",
+      "page": 1,
+      "type": "checkbox",
+      "label": "My Doctor",
+      "bbox": {
+        "x": 0.066,
+        "y": 0.638,
+        "width": 0.046,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_hoarding",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Hoarding / Banner",
+      "bbox": {
+        "x": 0.243,
+        "y": 0.638,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_newspaper",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Newspaper",
+      "bbox": {
+        "x": 0.473,
+        "y": 0.639,
+        "width": 0.045,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_flyer",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Flyer / Leaflet",
+      "bbox": {
+        "x": 0.646,
+        "y": 0.639,
+        "width": 0.046,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_other_checkbox",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Any other (please specify)",
+      "bbox": {
+        "x": 0.066,
+        "y": 0.678,
+        "width": 0.046,
+        "height": 0.022
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "ref_other_specify",
+      "page": 1,
+      "type": "text",
+      "label": "Any other please specify (write-in)",
+      "bbox": {
+        "x": 0.073,
+        "y": 0.72,
+        "width": 0.8,
+        "height": 0.016
+      },
+      "section_path": [
+        "Registration Form",
+        "I came to know about Paras Hospital from"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "consent_name",
+      "page": 1,
+      "type": "text",
+      "label": "Consent - undersigned name",
+      "bbox": {
+        "x": 0.085,
+        "y": 0.745,
+        "width": 0.155,
+        "height": 0.018
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "consent_sms",
+      "page": 1,
+      "type": "checkbox",
+      "label": "I wish to get healthcare information through SMS",
+      "bbox": {
+        "x": 0.481,
+        "y": 0.816,
+        "width": 0.046,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "consent_email",
+      "page": 1,
+      "type": "checkbox",
+      "label": "& / or E-mail",
+      "bbox": {
+        "x": 0.66,
+        "y": 0.817,
+        "width": 0.046,
+        "height": 0.021
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "sign_guardian",
+      "page": 1,
+      "type": "signature",
+      "label": "Sign. Guardian",
+      "bbox": {
+        "x": 0.221,
+        "y": 0.854,
+        "width": 0.15,
+        "height": 0.018
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "sign_patient",
+      "page": 1,
+      "type": "signature",
+      "label": "Sign. Patient",
+      "bbox": {
+        "x": 0.554,
+        "y": 0.854,
+        "width": 0.347,
+        "height": 0.018
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "bottom_name",
+      "page": 1,
+      "type": "text",
+      "label": "Name (signature block)",
+      "bbox": {
+        "x": 0.147,
+        "y": 0.886,
+        "width": 0.221,
+        "height": 0.018
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "bottom_relation",
+      "page": 1,
+      "type": "text",
+      "label": "Relation with Patient (signature block)",
+      "bbox": {
+        "x": 0.554,
+        "y": 0.886,
+        "width": 0.347,
+        "height": 0.018
+      },
+      "section_path": [
+        "Registration Form"
+      ],
+      "cell_count": 1
+    }
   ]
 }

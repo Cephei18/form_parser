@@ -147,3 +147,85 @@ def test_disabled_emits_nothing():
 
 def test_small_table_ignored():
     assert _emit([_table([_cell(1, 1, "x", 0.1, 0.3)], 1, 1)]) == []
+
+
+# --- signature-style table emission ------------------------------------------
+from src.table_fill import emit_signature_table_cells  # noqa: E402
+
+
+def _tb_word(text, x, y, w, h=0.012, page=1):
+    return {"bbox": {"x": x, "y": y, "width": w, "height": h}, "text": text, "page": page}
+
+
+def _sig_emit(tables, text_boxes, leaders):
+    return emit_signature_table_cells(
+        tables,
+        text_boxes=text_boxes,
+        visual_features={"synthetic_underlines": leaders, "underlines": []},
+        section_index=SectionIndex([]),
+        page_px=lambda p: (1000, 1300),
+    )
+
+
+def test_signature_table_emits_inline_answers():
+    # 2x2: every cell = label + dotted fill line (leaders cross cell borders).
+    cells = [
+        _cell(1, 1, "Sign. Guardian", 0.07, 0.85, w=0.23, h=0.033),
+        _cell(1, 2, "Sign. Patient", 0.30, 0.85, w=0.60, h=0.033),
+        _cell(2, 1, "Name", 0.07, 0.88, w=0.23, h=0.033),
+        _cell(2, 2, "Relation with Patient", 0.30, 0.88, w=0.60, h=0.033),
+    ]
+    words = [
+        _tb_word("Sign. Guardian", 0.087, 0.859, 0.126),
+        _tb_word("Sign. Patient", 0.401, 0.861, 0.104),
+        _tb_word("Name", 0.088, 0.893, 0.051),
+        _tb_word("Relation with Patient", 0.376, 0.894, 0.170),
+    ]
+    leaders = [
+        {"bbox": {"x": 0.088, "y": 0.860, "width": 0.632, "height": 0.014}, "page": 1, "source_type": "dotted"},
+        {"bbox": {"x": 0.088, "y": 0.893, "width": 0.633, "height": 0.013}, "page": 1, "source_type": "dotted"},
+    ]
+    maps, suppression = _sig_emit([_table(cells, 2, 2)], words, leaders)
+    labels = {m["label"] for m in maps}
+    assert labels == {"Sign. Guardian", "Sign. Patient", "Name", "Relation with Patient"}
+    assert len(suppression) == 1
+    types = {m["label"]: m["field_type"] for m in maps}
+    assert types["Sign. Guardian"] == "signature"
+    assert types["Name"] == "text"
+    # Guardian answer starts after its label and stops before "Sign. Patient".
+    g = next(m for m in maps if m["label"] == "Sign. Guardian")
+    assert g["bbox"]["x"] > 0.213
+    assert g["bbox"]["x"] + g["bbox"]["width"] <= 0.401
+
+
+def test_signature_table_skips_checkbox_matrix():
+    cells = [
+        _cell(1, 1, "[ ] PARK RANGER", 0.07, 0.78, w=0.23, h=0.03),
+        _cell(1, 2, "[ ] CLERICAL", 0.30, 0.78, w=0.30, h=0.03),
+        _cell(2, 1, "[ ] PARK MAINT", 0.07, 0.81, w=0.23, h=0.03),
+        _cell(2, 2, "[ ] OTHER", 0.30, 0.81, w=0.30, h=0.03),
+    ]
+    leaders = [{"bbox": {"x": 0.07, "y": 0.79, "width": 0.5, "height": 0.02}, "page": 1, "source_type": "broken"}]
+    maps, suppression = _sig_emit([_table(cells, 2, 2)], [], leaders)
+    assert maps == []
+    assert suppression == []
+
+
+def test_signature_table_skips_without_leader():
+    cells = [
+        _cell(1, 1, "A", 0.07, 0.85, w=0.23, h=0.03),
+        _cell(1, 2, "B", 0.30, 0.85, w=0.60, h=0.03),
+    ]
+    words = [_tb_word("A", 0.08, 0.86, 0.02), _tb_word("B", 0.31, 0.86, 0.02)]
+    maps, suppression = _sig_emit([_table(cells, 1, 2)], words, leaders=[])
+    assert maps == []
+
+
+def test_signature_table_skips_input_grid_with_empty_cells():
+    cells = [
+        _cell(1, 1, "High School", 0.07, 0.50, w=0.20, h=0.04),
+        _cell(1, 2, "", 0.30, 0.50, w=0.20, h=0.04),
+    ]
+    leaders = [{"bbox": {"x": 0.07, "y": 0.51, "width": 0.4, "height": 0.02}, "page": 1, "source_type": "dotted"}]
+    maps, _ = _sig_emit([_table(cells, 1, 2)], [], leaders)
+    assert maps == []

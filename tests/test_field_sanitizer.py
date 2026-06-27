@@ -91,6 +91,22 @@ def test_margin_furniture_in_footer_with_no_value():
     assert reason == "margin_furniture"
 
 
+def test_instruction_note_suppressed_when_value_is_a_sentence():
+    is_f, reason = is_page_furniture(
+        "Note :", _box(0.14, 0.93, 0.04, 0.012),
+        _box(0.20, 0.93, 0.50, 0.012),
+        "For any change in demographic data, Please contact the admission",
+    )
+    assert is_f is True
+    assert reason == "instruction_note"
+
+
+def test_blank_notes_field_preserved():
+    # An empty "Notes:" input box (no pre-printed sentence) is a real field.
+    is_f, _ = is_page_furniture("Notes", _box(0.1, 0.5, 0.06, 0.012), _box(0.2, 0.5, 0.4, 0.02), "")
+    assert is_f is False
+
+
 def test_margin_furniture_preserves_low_field_with_value():
     # A real answer that happens to sit low on the page must survive.
     is_f, _ = is_page_furniture(

@@ -20,6 +20,18 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
+coverage.xml
+junit*.xml
+.hypothesis/
+.tox/
+.nox/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Python tooling
+.python-version
+.cache/
 
 # Type checkers / linters
 .mypy_cache/
@@ -44,6 +56,14 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Editor backups / swap / merge artifacts
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
 
 # Frontend generated artifacts
 frontend/node_modules/

@@ -182,6 +182,13 @@ def is_page_furniture(
     if is_boilerplate_label(label):
         return True, "boilerplate_label"
 
+    # A "Note"/"Notes" label whose value is a pre-printed sentence (several
+    # words) is an instruction line, not a fillable field. Gated on a multi-word
+    # value so a genuinely blank "Notes:" input box (empty value) is preserved.
+    norm_label = re.sub(r"[^a-z]+", "", str(label or "").lower())
+    if norm_label in {"note", "notes"} and len(str(value or "").split()) >= 3:
+        return True, "instruction_note"
+
     # Extreme header/footer band: page numbers, source URLs, copyright. Only
     # treat as furniture when there is no meaningful captured value, so a real
     # answer that happens to sit low on the page is preserved.
