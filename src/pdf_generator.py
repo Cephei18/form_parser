@@ -1,3 +1,4 @@
+import os
 import re
 import logging
 import faulthandler
@@ -32,6 +33,107 @@ CHECKBOX_FILL = Color(1, 1, 1)
 FIELD_BORDER = Color(0.66, 0.69, 0.72)
 CHECKBOX_BORDER = Color(0.35, 0.37, 0.39)
 FIELD_TEXT = Color(0.08, 0.08, 0.08)
+
+
+# --------------------------------------------------------------------------- #
+# Phase A: safe, additive, emit-time hardening (no anchor/mapping-brain change).
+# Every behaviour is gated by an env flag and is a no-op when the flag is unset,
+# so the default render is byte-identical to before. Each flag is an independent
+# kill-switch for rollback.
+# --------------------------------------------------------------------------- #
+def _env_flag(name: str, default: bool = False) -> bool:
+    return os.getenv(name, "true" if default else "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Bug 7 — tooltip separator (U+203A "›") and other non-Latin-1 glyphs render as
+# the replacement char in PDF tooltips. Down-code to a PDFDoc-safe ASCII string.
+_TOOLTIP_TRANSLATE = {
+    0x203A: ">", 0x2039: "<", 0x2014: "-", 0x2013: "-",
+    0x2022: "-", 0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"', 0x00A0: " ",
+}
+
+
+def _sanitize_tooltip(text: str) -> str:
+    if not _env_flag("FORM_PARSER_TOOLTIP_SANITIZE"):
+        return text
+    s = str(text).translate(_TOOLTIP_TRANSLATE)
+    # Drop anything still outside Latin-1 so reportlab never emits a mojibake byte.
+    return s.encode("latin-1", "ignore").decode("latin-1")
+
+
+# Bug 2 (label half) — guide / column-header tokens that are never real fillable
+# field labels. Exact normalized match only, so a legitimate caption that merely
+# contains one of these words is untouched.
+_GUIDE_LABELS = {
+    "in capitals", "mm", "dd", "yyyy", "mm/dd/yyyy", "dd mm yyyy", "dd/mm/yyyy",
+    "yyyy mm dd", "in capital", "in block letters",
+}
+
+
+def _is_guide_label(label) -> bool:
+    if not _env_flag("FORM_PARSER_DROP_GUIDE_LABELS"):
+        return False
+    norm = re.sub(r"\s+", " ", str(label or "").strip().lower()).strip(" :*")
+    return norm in _GUIDE_LABELS
+
+
+def _rect_iou(a, b) -> float:
+    ax0, ay0, ax1, ay1 = a
+    bx0, by0, bx1, by1 = b
+    ix0, iy0 = max(ax0, bx0), max(ay0, by0)
+    ix1, iy1 = min(ax1, bx1), min(ay1, by1)
+    inter = max(0.0, ix1 - ix0) * max(0.0, iy1 - iy0)
+    ua = (ax1 - ax0) * (ay1 - ay0) + (bx1 - bx0) * (by1 - by0) - inter
+    return inter / ua if ua > 0 else 0.0
+
+
+def _suppressed_text_placements(placements: list) -> set:
+    """Return the set of placement keys to drop (Bug 1 NMS + Bug 9 degenerate).
+
+    ``placements`` is a list of ``(key, rect, field_type)`` where ``rect`` is
+    ``(x0, y0, x1, y1)`` in PDF points. Only Text/Comb widgets participate;
+    checkboxes/radios are never suppressed. No-op unless the relevant flag is on.
+    """
+    nms_on = _env_flag("FORM_PARSER_WIDGET_NMS")
+    degen_on = _env_flag("FORM_PARSER_DROP_DEGENERATE")
+    if not (nms_on or degen_on):
+        return set()
+
+    iou_thresh = float(os.getenv("FORM_PARSER_WIDGET_NMS_IOU", "0.7"))
+    min_w = float(os.getenv("FORM_PARSER_MIN_WIDGET_W", "6"))
+    min_h = float(os.getenv("FORM_PARSER_MIN_WIDGET_H", "5"))
+
+    # Only text widgets participate; checkboxes/radios are never suppressed, and
+    # comb widgets are exempt from the degenerate filter (their cells are small).
+    text_like = [
+        (key, rect) for key, rect, ftype in placements
+        if str(ftype).lower() in {"text", "field", ""}
+    ]
+    suppressed: set = set()
+
+    if degen_on:
+        for key, rect in text_like:
+            w, h = rect[2] - rect[0], rect[3] - rect[1]
+            if w < min_w or h < min_h:
+                suppressed.add(key)
+
+    if nms_on:
+        # Greedily keep the smallest-area (most specific) widget in each overlap
+        # cluster; suppress larger widgets that overlap it above the threshold.
+        # This collapses the full-width "ghost stacks" without dropping tighter,
+        # distinct fields.
+        ordered = sorted(
+            (p for p in text_like if p[0] not in suppressed),
+            key=lambda p: (p[1][2] - p[1][0]) * (p[1][3] - p[1][1]),
+        )
+        kept: list = []
+        for key, rect in ordered:
+            if any(_rect_iou(rect, krect) > iou_thresh for _, krect in kept):
+                suppressed.add(key)
+            else:
+                kept.append((key, rect))
+
+    return suppressed
 
 
 def _safe_field_name(label: str, index: int) -> str:
@@ -173,11 +275,11 @@ def _field_tooltip(mapping, default: str) -> str:
     if isinstance(mapping, dict):
         qualified = mapping.get("qualified_label")
         if qualified:
-            return str(qualified)
+            return _sanitize_tooltip(str(qualified))
         label = mapping.get("label")
         if label:
-            return str(label)
-    return default
+            return _sanitize_tooltip(str(label))
+    return _sanitize_tooltip(default)
 
 
 def _checkbox_is_checked(mapping) -> bool:
@@ -693,6 +795,11 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None, 
         c.drawImage(image_reader, 0, 0, width=page_width, height=page_height)
         logger.info("[pdf] draw background end page=%s", page_number)
 
+        # Pass 1 — resolve every widget's box -> PDF rect WITHOUT rendering, so a
+        # geometric suppression pass (Bug 1 NMS + Bug 9 degenerate) can act on the
+        # final rectangles. Order is preserved, so with all flags off Pass 2 below
+        # renders exactly the same widgets in the same order as before.
+        placements = []
         for index, mapping in mappings_by_page.get(page_number, []):
             if _is_non_fillable_region(mapping):
                 logger.info(
@@ -701,6 +808,12 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None, 
                     mapping.get("label", ""),
                     mapping.get("field_type", ""),
                 )
+                continue
+
+            # Bug 2 (label half) — suppress widgets whose label is a pure guide /
+            # column-header token (e.g. "IN CAPITALS", "MM"). Exact match only.
+            if _is_guide_label(mapping.get("label")):
+                logger.info("[pdf] skip guide-label widget page=%s label=%r", page_number, mapping.get("label", ""))
                 continue
 
             field_boxes = _validated_field_boxes(mapping, index)
@@ -730,29 +843,56 @@ def create_pdf_with_fields(image_path, mappings, output_path, page_images=None, 
 
                 field_name = _safe_field_name(mapping.get("label", "field") + ("_%d" % (li + 1)), index)
                 field_type = _field_type(mapping, box)
-                logger.info(
-                    "[pdf] add field start page=%s name=%s type=%s widget_type=%s",
-                    page_number,
-                    field_name,
-                    field_type,
-                    mapping.get("widget_type"),
+                placements.append(
+                    {
+                        "key": (index, li),
+                        "index": index,
+                        "li": li,
+                        "mapping": mapping,
+                        "box": box,
+                        "rect": (pdf_x, pdf_y, pdf_x + width, pdf_y + height_field),
+                        "pdf_x": pdf_x,
+                        "pdf_y": pdf_y,
+                        "width": width,
+                        "height_field": height_field,
+                        "field_name": field_name,
+                        "field_type": field_type,
+                    }
                 )
 
-                context = WidgetRenderContext(
-                    field_name=field_name,
-                    page_number=page_number,
-                    mapping_index=index,
-                    box_index=li + 1,
-                    pdf_x=pdf_x,
-                    pdf_y=pdf_y,
-                    width=width,
-                    height=height_field,
-                    page_width=page_width,
-                    page_height=page_height,
-                )
-                if not _render_declared_widget_if_enabled(c, mapping, box, context):
-                    _render_legacy_field(c, mapping, box, context)
-                logger.info("[pdf] add field end name=%s", field_name)
+        suppressed = _suppressed_text_placements(
+            [(p["key"], p["rect"], p["field_type"]) for p in placements]
+        )
+        if suppressed:
+            logger.info("[pdf] suppressed %d widget(s) on page=%s (NMS/degenerate)", len(suppressed), page_number)
+
+        # Pass 2 — render the survivors in original order.
+        for p in placements:
+            if p["key"] in suppressed:
+                continue
+            field_name = p["field_name"]
+            logger.info(
+                "[pdf] add field start page=%s name=%s type=%s widget_type=%s",
+                page_number,
+                field_name,
+                p["field_type"],
+                p["mapping"].get("widget_type"),
+            )
+            context = WidgetRenderContext(
+                field_name=field_name,
+                page_number=page_number,
+                mapping_index=p["index"],
+                box_index=p["li"] + 1,
+                pdf_x=p["pdf_x"],
+                pdf_y=p["pdf_y"],
+                width=p["width"],
+                height=p["height_field"],
+                page_width=page_width,
+                page_height=page_height,
+            )
+            if not _render_declared_widget_if_enabled(c, p["mapping"], p["box"], context):
+                _render_legacy_field(c, p["mapping"], p["box"], context)
+            logger.info("[pdf] add field end name=%s", field_name)
 
         if page_position < len(page_numbers):
             c.showPage()
