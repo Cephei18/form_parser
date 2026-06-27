@@ -317,6 +317,9 @@ def emit_signature_table_cells(
         # ("[ ] PARK RANGER"), not write-in labels.
         if any(_SELECTION_TOKEN_RE.search(c["text"]) for c in cells):
             continue
+        # Skip explicit "Sign Here" grids — handled by emit_signature_grid_cells.
+        if any(_is_sign_here_cell(re.sub(r"[^a-z ]+", " ", c["text"].lower()).strip()) for c in cells):
+            continue
 
         table_box = {
             "x": min(c["bbox"]["x"] for c in cells),
@@ -409,6 +412,121 @@ def emit_signature_table_cells(
                         "anchor_type": "table_cell",
                         "type_reasons": ["signature_table_inline_answer"],
                         "selection_reasons": ["table_fill_signature_cell"],
+                        "label_overlap_ratio": 0.0,
+                        "candidate_count": 1,
+                        "top_candidates": [],
+                        "key_block_id": None,
+                        "value_block_ids": [],
+                        "table_id": table.get("table_block_id"),
+                    },
+                }
+            )
+        suppression.append((page, table_box))
+
+    return mappings, suppression
+
+
+# Cell text (normalised) that marks an explicit signature box ("Sign Here").
+# Matched tightly so a label like "Sign. Guardian" (a dotted-leader row handled
+# by emit_signature_table_cells) is NOT treated as a signing box.
+def _is_sign_here_cell(norm_text: str) -> bool:
+    return "sign here" in norm_text or norm_text in {"sign", "signature"}
+
+
+def emit_signature_grid_cells(
+    tables: list[dict[str, Any]],
+    *,
+    section_index: SectionIndex,
+    page_px: Callable[[int], tuple[int, int]],
+) -> tuple[list[dict[str, Any]], list[tuple[int, dict[str, float]]]]:
+    """Emit signature widgets for an explicit "Sign Here" grid + its suppression
+    region.
+
+    Some forms lay out signatures as a small table where one row of cells says
+    "Sign Here" (the box to sign in) and an adjacent row carries the applicant
+    label ("First / Sole Applicant", "Second Applicant", ...). Textract turns the
+    labels into KEY fields and collapses the "Sign Here" values to points, so the
+    real wide signing boxes are lost. Here we emit one signature widget per
+    "Sign Here" cell (the full cell is the signing area) labelled from the
+    vertically-adjacent label cell, and return the table region so the caller can
+    drop the unreliable KEY fields inside it.
+    """
+    if not table_fill_enabled():
+        return [], []
+
+    mappings: list[dict[str, Any]] = []
+    suppression: list[tuple[int, dict[str, float]]] = []
+
+    for table in tables or []:
+        page = int(table.get("page") or 1)
+        cells = []
+        for cell in table.get("cells", []) or []:
+            box = _norm_box((cell.get("geometry") or {}).get("bounding_box"))
+            if box:
+                cells.append(
+                    {
+                        "text": str(cell.get("text") or "").strip(),
+                        "norm": re.sub(r"[^a-z ]+", " ", str(cell.get("text") or "").lower()).strip(),
+                        "row": int(cell.get("row_index") or 0),
+                        "col": int(cell.get("column_index") or 0),
+                        "bbox": box,
+                    }
+                )
+        sign_cells = [c for c in cells if _is_sign_here_cell(c["norm"])]
+        if not sign_cells:
+            continue
+
+        table_box = {
+            "x": min(c["bbox"]["x"] for c in cells),
+            "y": min(c["bbox"]["y"] for c in cells),
+            "width": max(_right(c["bbox"]) for c in cells) - min(c["bbox"]["x"] for c in cells),
+            "height": max(_bottom(c["bbox"]) for c in cells) - min(c["bbox"]["y"] for c in cells),
+        }
+
+        for sc in sign_cells:
+            # Label cell: same column, a different row, with non-sign text.
+            label_cell = next(
+                (
+                    c
+                    for c in cells
+                    if c["col"] == sc["col"] and c["row"] != sc["row"] and c["text"] and not _is_sign_here_cell(c["norm"])
+                ),
+                None,
+            )
+            label = label_cell["text"] if label_cell else "Signature"
+            box = dict(sc["bbox"])
+            owner = section_index.owner(page, float(box["y"]))
+            px_w, px_h = page_px(page)
+            mappings.append(
+                {
+                    "field_id": f"signgrid_{page}_{sc['row']}_{sc['col']}",
+                    "label": label,
+                    "qualified_label": qualify_label(owner, label),
+                    "section": section_summary(owner),
+                    "value": "",
+                    "field_type": "signature",
+                    "bbox": dict(box),
+                    "label_bbox": None,
+                    "answer_region": {"bbox": dict(box), "type": "signature_grid_cell", "confidence": 0.9},
+                    "page": page,
+                    "confidence": 0.9,
+                    "candidate_score": 0.9,
+                    "confidence_class": _confidence_class(0.9),
+                    "multiline_group_size": 1,
+                    "field_bboxes": [
+                        {
+                            "x": float(box["x"]) * px_w,
+                            "y": float(box["y"]) * px_h,
+                            "width": float(box["width"]) * px_w,
+                            "height": float(box["height"]) * px_h,
+                        }
+                    ],
+                    "source": "textract_table_fill",
+                    "render_border": False,
+                    "anchoring": {
+                        "anchor_type": "signature_region",
+                        "type_reasons": ["sign_here_grid_cell"],
+                        "selection_reasons": ["table_fill_signature_grid"],
                         "label_overlap_ratio": 0.0,
                         "candidate_count": 1,
                         "top_candidates": [],

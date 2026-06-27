@@ -229,3 +229,43 @@ def test_signature_table_skips_input_grid_with_empty_cells():
     leaders = [{"bbox": {"x": 0.07, "y": 0.51, "width": 0.4, "height": 0.02}, "page": 1, "source_type": "dotted"}]
     maps, _ = _sig_emit([_table(cells, 1, 2)], [], leaders)
     assert maps == []
+
+
+# --- signature "Sign Here" grid ----------------------------------------------
+from src.table_fill import emit_signature_grid_cells  # noqa: E402
+
+
+def _grid_emit(tables):
+    return emit_signature_grid_cells(tables, section_index=SectionIndex([]), page_px=lambda p: (1000, 1400))
+
+
+def test_sign_here_grid_emits_signature_widgets():
+    # Row 1 = "Sign Here" boxes, row 2 = applicant labels (EUIN block shape).
+    cells = [
+        _cell(1, 1, "Sign Here", 0.063, 0.196, w=0.301, h=0.034),
+        _cell(1, 2, "Sign Here", 0.363, 0.196, w=0.304, h=0.034),
+        _cell(1, 3, "Sign Here", 0.668, 0.196, w=0.303, h=0.034),
+        _cell(2, 1, "First / Sole Applicant", 0.063, 0.230, w=0.301, h=0.015),
+        _cell(2, 2, "Second Applicant", 0.363, 0.230, w=0.304, h=0.015),
+        _cell(2, 3, "Third Applicant", 0.668, 0.230, w=0.303, h=0.015),
+    ]
+    maps, suppression = _grid_emit([_table(cells, 2, 3)])
+    assert len(maps) == 3
+    assert all(m["field_type"] == "signature" for m in maps)
+    labels = {m["label"] for m in maps}
+    assert labels == {"First / Sole Applicant", "Second Applicant", "Third Applicant"}
+    # The signature box is the wide "Sign Here" cell, not a thin line.
+    assert all(m["bbox"]["width"] > 0.25 for m in maps)
+    assert len(suppression) == 1
+
+
+def test_sign_dot_guardian_not_treated_as_sign_here_grid():
+    # form_5 bottom table cells ("Sign. Guardian") are dotted-leader labels,
+    # NOT "Sign Here" boxes -> the grid emitter must ignore them.
+    cells = [
+        _cell(1, 1, "Sign. Guardian", 0.07, 0.85, w=0.23, h=0.03),
+        _cell(1, 2, "Sign. Patient", 0.30, 0.85, w=0.60, h=0.03),
+    ]
+    maps, suppression = _grid_emit([_table(cells, 1, 2)])
+    assert maps == []
+    assert suppression == []

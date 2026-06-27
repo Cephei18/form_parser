@@ -35,8 +35,14 @@ from src.field_sanitizer import (
     is_page_furniture,
 )
 from src.radio_grouper import apply_radio_grouping
+from src.page_classifier import non_fillable_pages, page_gating_enabled
 from src.section_detector import SectionIndex, detect_sections, qualify_label, section_summary
-from src.table_fill import emit_signature_table_cells, emit_table_input_cells, table_fill_enabled
+from src.table_fill import (
+    emit_signature_grid_cells,
+    emit_signature_table_cells,
+    emit_table_input_cells,
+    table_fill_enabled,
+)
 from src.semantic_classifier import (
     apply_semantic_priors,
     build_semantic_diagnostics,
@@ -1827,6 +1833,14 @@ def build_anchored_mappings(
     text_boxes = _visual_text_boxes(blocks, page_by_id)
     metrics_by_page = _build_page_metrics(text_boxes)
 
+    # Non-fillable page gating: instruction / checklist / riskometer / blank
+    # pages carry no user-fillable fields, yet Textract still reports KEY/VALUE
+    # pairs, pre-printed ticks and table cells on them. Suppress widget emission
+    # on those pages entirely. ON by default; FORM_PARSER_PAGE_GATING_ENABLED
+    # =false reverts. Single-page forms are unaffected (no page is flagged).
+    non_fillable_page_map = non_fillable_pages(raw_response, parsed) if page_gating_enabled() else {}
+    non_fillable_page_set = set(non_fillable_page_map)
+
     # --- Document hierarchy (Phase 2.2) ---------------------------------------
     # Detect section headings and build a reading-order owner index. Field keys
     # are excluded from heading candidacy so a label is never mistaken for a
@@ -1972,6 +1986,8 @@ def build_anchored_mappings(
         key_id = rec["key_id"]
         label_box = rec["label_box"]
         page = rec["page"]
+        if page in non_fillable_page_set:
+            continue
         metrics = rec["metrics"]
         owner_section = rec["owner_section"]
         inline_split = rec["inline_split"]
@@ -2226,6 +2242,8 @@ def build_anchored_mappings(
         checkbox_mapping = _checkbox_mapping(checkbox, blocks_by_id, page_by_id, _page_px, index)
         if checkbox_mapping is None:
             continue
+        if int(checkbox_mapping.get("page") or 1) in non_fillable_page_set:
+            continue  # pre-printed ticks on a checklist/reference page are not widgets
         # Checkbox ownership inherits its section from the glyph's reading
         # position, so option lists ("Single / Joint / Anyone or Survivor")
         # resolve under their section ("Holding Mode") even when Textract leaves
@@ -2261,6 +2279,8 @@ def build_anchored_mappings(
         if any(_overlap_ratio(box, existing) > 0.5 for existing in existing_photo_boxes):
             continue
         page = int(feature.get("page") or 1)
+        if page in non_fillable_page_set:
+            continue
         conf = round(_clamp(float(feature.get("confidence") or 0.7)), 4)
         photo_owner = section_index.owner(page, float(box["y"]))
         photo_mapping = {
@@ -2326,6 +2346,7 @@ def build_anchored_mappings(
             page_px=_page_px,
             existing_field_boxes=existing_field_boxes,
         )
+        table_cell_mappings = [m for m in table_cell_mappings if int(m.get("page") or 1) not in non_fillable_page_set]
         for cell_mapping in table_cell_mappings:
             mappings.append(cell_mapping)
             anchor_records.append(
@@ -2359,6 +2380,16 @@ def build_anchored_mappings(
             section_index=section_index,
             page_px=_page_px,
         )
+        # "Sign Here" signature grids (e.g. EUIN block: a row of "Sign Here"
+        # boxes over a row of applicant labels). Emit a signature widget per
+        # box and suppress the KEY fields the labels/boxes produced.
+        grid_mappings, grid_suppression = emit_signature_grid_cells(
+            parsed.get("tables", []) or [],
+            section_index=section_index,
+            page_px=_page_px,
+        )
+        sig_mappings = sig_mappings + grid_mappings
+        sig_suppression = sig_suppression + grid_suppression
         if sig_suppression:
             def _in_sig_table(mapping: dict[str, Any]) -> bool:
                 if mapping.get("field_type") in {"checkbox", "photo"}:
@@ -2379,6 +2410,7 @@ def build_anchored_mappings(
                 mappings = [m for m in mappings if str(m.get("field_id")) not in suppressed_ids]
                 anchor_records = [r for r in anchor_records if str(r.get("field_id")) not in suppressed_ids]
                 logger.info("[anchor] signature-table suppressed %d KEY field(s)", len(suppressed_ids))
+        sig_mappings = [m for m in sig_mappings if int(m.get("page") or 1) not in non_fillable_page_set]
         for cell_mapping in sig_mappings:
             mappings.append(cell_mapping)
             anchor_records.append(
@@ -2624,6 +2656,10 @@ def build_anchored_mappings(
     diagnostics["table_fill"] = {
         "enabled": table_fill_enabled(),
         "emitted_input_cell_count": table_fill_count,
+    }
+    diagnostics["page_gating"] = {
+        "enabled": page_gating_enabled(),
+        "non_fillable_pages": {str(p): r for p, r in sorted(non_fillable_page_map.items())},
     }
     diagnostics["field_hygiene"] = {
         "enabled": field_hygiene_enabled(),

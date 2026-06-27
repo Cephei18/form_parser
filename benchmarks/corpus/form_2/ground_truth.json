@@ -1,3 +1,634 @@
 {
-  "widgets": []
+  "schema_version": "1.0",
+  "form_id": "form_2",
+  "doc_class": "banking",
+  "source": "HDFC Mutual Fund - Application-cum-Transaction Form for Market Makers & Large Investors (April 2023)",
+  "page_count": 8,
+  "page_types": {
+    "1": "fillable",
+    "2": "fillable",
+    "3": "fillable",
+    "4": "fillable",
+    "5": "instructions",
+    "6": "instructions",
+    "7": "instructions",
+    "8": "blank"
+  },
+  "failure_modes": [
+    "non_interactive_pages",
+    "large_doc_degradation",
+    "repeated_sections",
+    "checkbox_matrix_as_widgets"
+  ],
+  "annotation_coverage": "page_types complete (8 pages). Widgets: representative high-confidence subset of discrete fields (mode-of-holding, market-maker/large-investor, tax-status, payable/receivable, bank account-type option groups, signatures, principal text/comb fields). NOT exhaustive: the Section 7 ETF scheme grid (~80 Cash/Portfolio cells), the Section 6 FATCA matrix, and Section 12/page-4 beneficiary lists are intentionally not cell-annotated yet. P/R therefore understate; the headline metric for the page-gating fix is non_fillable_false_positives.",
+  "widgets": [
+    {
+      "widget_id": "p1_mode_single",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Mode of Holding: Single",
+      "bbox": {
+        "x": 0.296,
+        "y": 0.361,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Mode of Holding"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_mode_joint",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Mode of Holding: Joint",
+      "bbox": {
+        "x": 0.39,
+        "y": 0.361,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Mode of Holding"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_mode_anyone",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Mode of Holding: Anyone or Survivor",
+      "bbox": {
+        "x": 0.471,
+        "y": 0.361,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Mode of Holding"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_market_maker",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Market Maker",
+      "bbox": {
+        "x": 0.45,
+        "y": 0.457,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Market Maker / Large Investor"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_large_investor",
+      "page": 1,
+      "type": "checkbox",
+      "label": "Large Investor",
+      "bbox": {
+        "x": 0.565,
+        "y": 0.457,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Market Maker / Large Investor"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_folio_no",
+      "page": 1,
+      "type": "text",
+      "label": "Folio No.",
+      "bbox": {
+        "x": 0.118,
+        "y": 0.3,
+        "width": 0.23,
+        "height": 0.016
+      },
+      "section_path": [
+        "Existing Unit Holder Information"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_dp_id",
+      "page": 1,
+      "type": "comb",
+      "label": "DP ID",
+      "bbox": {
+        "x": 0.47,
+        "y": 0.318,
+        "width": 0.18,
+        "height": 0.016
+      },
+      "section_path": [
+        "Demat Account Details"
+      ],
+      "cell_count": 8
+    },
+    {
+      "widget_id": "p1_beneficiary_acct",
+      "page": 1,
+      "type": "comb",
+      "label": "Beneficiary Account No.",
+      "bbox": {
+        "x": 0.7,
+        "y": 0.318,
+        "width": 0.2,
+        "height": 0.016
+      },
+      "section_path": [
+        "Demat Account Details"
+      ],
+      "cell_count": 8
+    },
+    {
+      "widget_id": "p1_mm_pan",
+      "page": 1,
+      "type": "comb",
+      "label": "PAN / PEKRN (Market Maker)",
+      "bbox": {
+        "x": 0.56,
+        "y": 0.52,
+        "width": 0.2,
+        "height": 0.016
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 10
+    },
+    {
+      "widget_id": "p1_mm_kyc",
+      "page": 1,
+      "type": "text",
+      "label": "KYC Number (Market Maker)",
+      "bbox": {
+        "x": 0.13,
+        "y": 0.534,
+        "width": 0.339,
+        "height": 0.014
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_mailing_address",
+      "page": 1,
+      "type": "multiline",
+      "label": "Mailing Address of First / Sole Applicant",
+      "bbox": {
+        "x": 0.073,
+        "y": 0.64,
+        "width": 0.84,
+        "height": 0.03
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 2
+    },
+    {
+      "widget_id": "p1_city",
+      "page": 1,
+      "type": "text",
+      "label": "City",
+      "bbox": {
+        "x": 0.09,
+        "y": 0.672,
+        "width": 0.23,
+        "height": 0.016
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_state",
+      "page": 1,
+      "type": "text",
+      "label": "State",
+      "bbox": {
+        "x": 0.43,
+        "y": 0.672,
+        "width": 0.23,
+        "height": 0.016
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_pin",
+      "page": 1,
+      "type": "comb",
+      "label": "PIN Code",
+      "bbox": {
+        "x": 0.79,
+        "y": 0.672,
+        "width": 0.12,
+        "height": 0.016
+      },
+      "section_path": [
+        "Market Maker Details"
+      ],
+      "cell_count": 6
+    },
+    {
+      "widget_id": "p1_sign_first",
+      "page": 1,
+      "type": "signature",
+      "label": "Sign Here - First / Sole Applicant / Guardian / PoA",
+      "bbox": {
+        "x": 0.063,
+        "y": 0.196,
+        "width": 0.301,
+        "height": 0.033
+      },
+      "section_path": [
+        "EUIN Declaration"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_sign_second",
+      "page": 1,
+      "type": "signature",
+      "label": "Sign Here - Second Applicant",
+      "bbox": {
+        "x": 0.363,
+        "y": 0.196,
+        "width": 0.304,
+        "height": 0.033
+      },
+      "section_path": [
+        "EUIN Declaration"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_sign_third",
+      "page": 1,
+      "type": "signature",
+      "label": "Sign Here - Third Applicant",
+      "bbox": {
+        "x": 0.668,
+        "y": 0.196,
+        "width": 0.303,
+        "height": 0.033
+      },
+      "section_path": [
+        "EUIN Declaration"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p2_second_pan",
+      "page": 2,
+      "type": "comb",
+      "label": "PAN / PEKRN (Second Applicant)",
+      "bbox": {
+        "x": 0.43,
+        "y": 0.435,
+        "width": 0.2,
+        "height": 0.016
+      },
+      "section_path": [
+        "Joint Applicant Details"
+      ],
+      "cell_count": 10
+    },
+    {
+      "widget_id": "p2_third_pan",
+      "page": 2,
+      "type": "comb",
+      "label": "PAN / PEKRN (Third Applicant)",
+      "bbox": {
+        "x": 0.43,
+        "y": 0.52,
+        "width": 0.2,
+        "height": 0.016
+      },
+      "section_path": [
+        "Joint Applicant Details"
+      ],
+      "cell_count": 10
+    },
+    {
+      "widget_id": "p2_poa_name",
+      "page": 2,
+      "type": "text",
+      "label": "Name of PoA",
+      "bbox": {
+        "x": 0.25,
+        "y": 0.56,
+        "width": 0.3,
+        "height": 0.016
+      },
+      "section_path": [
+        "Power of Attorney Holder Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p2_fatca_first_yes",
+      "page": 2,
+      "type": "checkbox",
+      "label": "FATCA - First Applicant - Country other than India? Yes",
+      "bbox": {
+        "x": 0.486,
+        "y": 0.79,
+        "width": 0.012,
+        "height": 0.009
+      },
+      "section_path": [
+        "FATCA and CRS Information"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p2_fatca_first_no",
+      "page": 2,
+      "type": "checkbox",
+      "label": "FATCA - First Applicant - Country other than India? No",
+      "bbox": {
+        "x": 0.534,
+        "y": 0.79,
+        "width": 0.012,
+        "height": 0.009
+      },
+      "section_path": [
+        "FATCA and CRS Information"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_tax_individual",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Tax Status: Individual",
+      "bbox": {
+        "x": 0.333,
+        "y": 0.576,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Tax Status"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_tax_nri",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Tax Status: NRI",
+      "bbox": {
+        "x": 0.414,
+        "y": 0.576,
+        "width": 0.011,
+        "height": 0.008
+      },
+      "section_path": [
+        "Tax Status"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_tax_company",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Tax Status: Company",
+      "bbox": {
+        "x": 0.474,
+        "y": 0.576,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Tax Status"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_tax_trust",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Tax Status: Trust",
+      "bbox": {
+        "x": 0.559,
+        "y": 0.576,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Tax Status"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_cash_payable",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Cash Component: Payable",
+      "bbox": {
+        "x": 0.25,
+        "y": 0.618,
+        "width": 0.011,
+        "height": 0.008
+      },
+      "section_path": [
+        "Cash Component"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_cash_receivable",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Cash Component: Receivable",
+      "bbox": {
+        "x": 0.384,
+        "y": 0.618,
+        "width": 0.011,
+        "height": 0.008
+      },
+      "section_path": [
+        "Cash Component"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_acct_current",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Account Type: Current",
+      "bbox": {
+        "x": 0.315,
+        "y": 0.88,
+        "width": 0.011,
+        "height": 0.008
+      },
+      "section_path": [
+        "Investment and Payment Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_acct_nro",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Account Type: NRO",
+      "bbox": {
+        "x": 0.39,
+        "y": 0.88,
+        "width": 0.011,
+        "height": 0.008
+      },
+      "section_path": [
+        "Investment and Payment Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_acct_fcnr",
+      "page": 3,
+      "type": "checkbox",
+      "label": "Account Type: FCNR",
+      "bbox": {
+        "x": 0.509,
+        "y": 0.88,
+        "width": 0.012,
+        "height": 0.008
+      },
+      "section_path": [
+        "Investment and Payment Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_bank_name",
+      "page": 3,
+      "type": "text",
+      "label": "Bank Name",
+      "bbox": {
+        "x": 0.12,
+        "y": 0.47,
+        "width": 0.35,
+        "height": 0.016
+      },
+      "section_path": [
+        "Bank Account Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_account_number",
+      "page": 3,
+      "type": "comb",
+      "label": "Account Number",
+      "bbox": {
+        "x": 0.12,
+        "y": 0.5,
+        "width": 0.35,
+        "height": 0.016
+      },
+      "section_path": [
+        "Bank Account Details"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p3_ifsc",
+      "page": 3,
+      "type": "comb",
+      "label": "IFSC Code",
+      "bbox": {
+        "x": 0.12,
+        "y": 0.522,
+        "width": 0.18,
+        "height": 0.016
+      },
+      "section_path": [
+        "Bank Account Details"
+      ],
+      "cell_count": 11
+    },
+    {
+      "widget_id": "p4_sign_first",
+      "page": 4,
+      "type": "signature",
+      "label": "Signature - First / Sole Applicant / Guardian",
+      "bbox": {
+        "x": 0.64,
+        "y": 0.42,
+        "width": 0.33,
+        "height": 0.04
+      },
+      "section_path": [
+        "Declaration & Signatures"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p4_sign_second",
+      "page": 4,
+      "type": "signature",
+      "label": "Signature - Second Applicant",
+      "bbox": {
+        "x": 0.64,
+        "y": 0.52,
+        "width": 0.33,
+        "height": 0.04
+      },
+      "section_path": [
+        "Declaration & Signatures"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p4_sign_third",
+      "page": 4,
+      "type": "signature",
+      "label": "Signature - Third Applicant",
+      "bbox": {
+        "x": 0.64,
+        "y": 0.61,
+        "width": 0.33,
+        "height": 0.04
+      },
+      "section_path": [
+        "Declaration & Signatures"
+      ],
+      "cell_count": 1
+    },
+    {
+      "widget_id": "p1_ack_received_from",
+      "page": 1,
+      "type": "text",
+      "label": "Acknowledgement - Received from Mr. / Ms. / M/s.",
+      "bbox": {
+        "x": 0.212,
+        "y": 0.952,
+        "width": 0.524,
+        "height": 0.016
+      },
+      "section_path": [
+        "Acknowledgement Slip"
+      ],
+      "cell_count": 1
+    }
+  ]
 }

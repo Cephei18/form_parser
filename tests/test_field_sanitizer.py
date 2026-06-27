@@ -107,6 +107,24 @@ def test_blank_notes_field_preserved():
     assert is_f is False
 
 
+def test_margin_furniture_preserves_long_label_bottom_field():
+    # An acknowledgement-slip "Received from Mr. / Ms. / M/s." sits at the page
+    # bottom with an empty value but a multi-word label -> a real field, kept.
+    is_f, _ = is_page_furniture(
+        "Received from Mr. / Ms. / M/s.",
+        _box(0.10, 0.96, 0.18, 0.012),
+        _box(0.30, 0.96, 0.50, 0.012),
+        "",
+    )
+    assert is_f is False
+
+
+def test_margin_furniture_still_suppresses_terse_footer():
+    is_f, reason = is_page_furniture("downlost 5", _box(0.40, 0.962, 0.05, 0.008),
+                                     _box(0.45, 0.963, 0.10, 0.008), "")
+    assert is_f is True and reason == "margin_furniture"
+
+
 def test_margin_furniture_preserves_low_field_with_value():
     # A real answer that happens to sit low on the page must survive.
     is_f, _ = is_page_furniture(

@@ -190,10 +190,13 @@ def is_page_furniture(
         return True, "instruction_note"
 
     # Extreme header/footer band: page numbers, source URLs, copyright. Only
-    # treat as furniture when there is no meaningful captured value, so a real
-    # answer that happens to sit low on the page is preserved.
+    # treat as furniture when there is no meaningful captured value AND the label
+    # is short (<=3 words) — genuine bottom-of-page fields like an acknowledgement
+    # slip's "Received from Mr. / Ms. / M/s." carry a multi-word label and must be
+    # preserved, while page furniture ("downlost 5", "SampleWords") is terse.
     boxes = [b for b in (label_box, answer_box) if isinstance(b, dict)]
-    if boxes and not str(value or "").strip():
+    label_word_count = len(re.findall(r"[A-Za-z0-9]+", str(label or "")))
+    if boxes and not str(value or "").strip() and label_word_count <= 3:
         in_margin = all(
             _center_y(b) >= FOOTER_FURNITURE_Y or _center_y(b) <= HEADER_FURNITURE_Y
             for b in boxes
